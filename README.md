@@ -1,17 +1,6 @@
 # DAD2526
 
-DAD 25-26 Project
 
-This repository holds the base code required to implement the project. Students are free to improve on the following
-code.
-Students should create a copy of this repository by clicking on `Use This Template` on the project GitHub page.
-
-# ⚠️ **WARNING:** ⚠️
-
-Students must **NOT** develop their solution on a Fork of the repository.
-Forks are public and your code **WILL** be visible to other students.
-
-It falls onto the students to **NOT DEVELOP ON A FORK THE PROJECT**
 
 # Requirements
 

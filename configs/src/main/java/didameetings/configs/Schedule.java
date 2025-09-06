@@ -3,21 +3,21 @@ package didameetings.configs;
 import java.util.*;
 
 
-public abstract class Schedule {
+public interface Schedule {
 
-    abstract List<Integer> learners(int ballot);
+    List<Integer> learners(int ballot);
     
-    abstract List<Integer> acceptors(int ballot);
+    List<Integer> acceptors(int ballot);
 
-    abstract List<Integer> acceptorsinrange(int low_ballot, int high_ballot);
+    List<Integer> acceptorsinrange(int low_ballot, int high_ballot);
 
-    abstract boolean isacceptor(int node, int ballot);
+    boolean isacceptor(int node, int ballot);
 
-    abstract List<Integer> allparticipants ();
- 
-    abstract List<Integer> allparticipantsinballot (int ballot);
-    
-    abstract Integer leader (int ballot);
+    List<Integer> allparticipants ();
 
-    abstract Integer quorum (int ballot);
+    List<Integer> allparticipantsinballot (int ballot);
+
+    Integer leader (int ballot);
+
+    Integer quorum (int ballot);
 }
