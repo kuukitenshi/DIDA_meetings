@@ -2,3 +2,9 @@ dev_env/
 .idea/
 .vscode/
 *.log
+target/
+*.settings
+*.project
+*.classpath
+.vscode/
+.idea/
