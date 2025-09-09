@@ -31,7 +31,6 @@ public class DidaMeetingsServerState {
     private int current_ballot;
     private int completed_ballot;
     private int debug_mode;
-    private DebugModes debugModes;
     private boolean isFrozen = false;
     private boolean isSlowMode = false;
 
@@ -45,7 +44,6 @@ public class DidaMeetingsServerState {
         this.base_port = port;
         this.my_id = myself;
         this.debug_mode = 0;
-        this.debugModes = new DebugModes();
         this.current_ballot = 0;
         this.completed_ballot = -1;
         this.req_history = new RequestHistory();
