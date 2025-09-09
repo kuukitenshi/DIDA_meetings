@@ -18,6 +18,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
 public class DidaMeetingsApp {
+
 	public static final int MAX_PARTICIPANTS = 10;
 	private boolean interactive_mode;
 	private int meetings_range;
@@ -95,7 +96,6 @@ public class DidaMeetingsApp {
 			}
 		} else
 			System.out.println("Panic...error opening a meeting\n");
-
 		return result;
 	}
 
@@ -133,7 +133,6 @@ public class DidaMeetingsApp {
 			}
 		} else
 			System.out.println("Panic...error adding a participant to a meeting\n");
-
 		return result;
 	}
 
@@ -173,7 +172,6 @@ public class DidaMeetingsApp {
 			}
 		} else
 			System.out.println("Panic...error while adding topic to a participant in a meeting\n");
-
 		return result;
 	}
 
@@ -210,7 +208,6 @@ public class DidaMeetingsApp {
 			}
 		} else
 			System.out.println("Panic...error closing a meeting\n");
-
 		return result;
 	}
 
@@ -245,7 +242,6 @@ public class DidaMeetingsApp {
 			}
 		} else
 			System.out.println("Panic...error on dump request\n");
-
 		return result;
 	}
 

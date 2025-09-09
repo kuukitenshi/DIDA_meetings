@@ -3,14 +3,14 @@ package didameetings.configs;
 import java.util.*;
 
 public class ScheduleB implements Schedule {
+	
 	private List<Integer> all_participants = Arrays.asList(0, 1, 2, 3, 4, 5);
 	private List<Integer> all_learners = Arrays.asList(0, 1, 2, 3, 4, 5);
 	private List<Integer> acceptors_start = Arrays.asList(0, 1, 2);
 	private List<Integer> acceptors_end = Arrays.asList(1, 2, 3, 4, 5);
 	private List<Integer> acceptors_all = Arrays.asList(0, 1, 2, 3, 4, 5);
 
-	public ScheduleB() {
-	}
+	public ScheduleB() {}
 
 	public List<Integer> learners(int ballot) {
 		return this.all_learners;

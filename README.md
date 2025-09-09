@@ -1,7 +1,5 @@
 # DAD2526
 
-
-
 # Requirements
 
 The project requires the following packages:
@@ -81,7 +79,7 @@ The client module opens a terminal from where students may issue commands. The f
 ## Console
 
 The console client servers as a front-end to issue configuration settings to servers. It is executed by running the
-following command in the *consoleclient* directory:
+following command in the *console* directory:
 
 `mvn exec:java -Dexec.args="{host} {port} {scheduler}"`
 

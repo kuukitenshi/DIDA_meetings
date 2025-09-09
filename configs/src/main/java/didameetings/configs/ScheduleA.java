@@ -3,12 +3,12 @@ package didameetings.configs;
 import java.util.*;
 
 public class ScheduleA implements Schedule {
+
     private List<Integer> all_participants = Arrays.asList(0, 1, 2);
     private List<Integer> all_learners = Arrays.asList(0, 1, 2);
     private List<Integer> all_acceptors = Arrays.asList(0, 1, 2);
 
-    public ScheduleA() {
-    }
+    public ScheduleA() {}
 
     public List<Integer> learners(int ballot) {
         return this.all_learners;
@@ -36,7 +36,6 @@ public class ScheduleA implements Schedule {
 
     public Integer leader(int ballot) {
         int leader = ballot % 3;
-
         return leader;
     }
 

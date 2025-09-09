@@ -13,6 +13,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
 public class Console {
+
 	private int ballot_completed = -1;
 	private int last_ballot = -1;
 
@@ -216,9 +217,7 @@ public class Console {
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("Starting...");
-
 		Console console = new Console();
-
 		console.main_loop(args);
 	}
 }

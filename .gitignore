@@ -8,3 +8,5 @@ target/
 *.classpath
 .vscode/
 .idea/
+cmd.md
+*.pdf

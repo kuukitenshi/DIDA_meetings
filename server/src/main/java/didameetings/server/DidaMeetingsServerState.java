@@ -31,6 +31,9 @@ public class DidaMeetingsServerState {
 	private int current_ballot;
 	private int completed_ballot;
 	private int debug_mode;
+	private DebugModes debugModes;
+	private boolean isFrozen = false;
+	private boolean isSlowMode = false;
 
 	MainLoop main_loop;
 	Thread main_loop_worker;
@@ -42,6 +45,7 @@ public class DidaMeetingsServerState {
 		this.base_port = port;
 		this.my_id = myself;
 		this.debug_mode = 0;
+		this.debugModes = new DebugModes();
 		this.current_ballot = 0;
 		this.completed_ballot = -1;
 		this.req_history = new RequestHistory();
@@ -106,7 +110,7 @@ public class DidaMeetingsServerState {
 	public synchronized void updateCompletedBallot(int ballot) {
 		// WARNING: THIS ONLY WORKS FOR CONFIGURATIONS WHERE THERE IS NO NEED FOR
 		// STATE-TRANSFER!!!!!
-		// NEEDS TO BE UPDATE FOR THE PROJECT
+		// NEEDS TO BE UPDATE FOR THE PROJECT TODO:
 
 		ballot = this.findMaxDecidedBallot();
 		if (ballot > this.completed_ballot)
@@ -136,6 +140,47 @@ public class DidaMeetingsServerState {
 
 	public synchronized void setDebugMode(int mode) {
 		this.debug_mode = mode;
+		if (this.debugModes != null) {
+			this.debugModes.applyMode(mode, this);
+		}
+	}
+
+	// ---------------------- freeze --------------------------------
+	public synchronized void setFreeze(boolean value) {
+		this.isFrozen = value;
+		if(!value) {
+			notifyAll();
+		}
+	}
+
+	public synchronized void waitIfFrozen() {
+		while (isFrozen) {
+			try {
+				wait();
+			} catch (InterruptedException e) { }
+		}
+	}
+
+	public synchronized boolean isFrozen() {
+		return isFrozen;
+	}
+
+	// ---------------------- slow-mode ------------------------------
+	public synchronized void setSlowMode(boolean value) {
+		this.isSlowMode = value;
+	}
+
+	public void randomDelay() {
+		if (isSlowMode) {
+			try {
+				long delay = 100 + (long)(Math.random() * 900); // 100ms - 1000ms
+				Thread.sleep(delay);
+			} catch (InterruptedException e) { }
+		}
+	}
+
+	public synchronized boolean isSlowMode() {
+		return isSlowMode;
 	}
 
 }
