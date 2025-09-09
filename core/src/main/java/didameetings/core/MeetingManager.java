@@ -51,13 +51,18 @@ public class MeetingManager {
 		Meeting meeting = this.open_meetings.get(mid);
 
 		if (meeting != null) {
-			meeting.add(pid);
-			if (meeting.size() == meeting.max()) {
-				meeting.close();
-				this.closed_meetings.put(mid, meeting);
-				this.open_meetings.remove(mid);
+			boolean added = meeting.add(pid);
+			// check if add was successful
+			if (added) {
+				if (meeting.size() == meeting.max()) {
+					meeting.close();
+					this.closed_meetings.put(mid, meeting);
+					this.open_meetings.remove(mid);
+				}
+				return true;
+			} else {
+				return false;
 			}
-			return true;
 		} else
 			return false;
 	}

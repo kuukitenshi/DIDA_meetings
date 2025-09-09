@@ -46,8 +46,10 @@ public class DidaMeetingsServer {
 		final BindableService paxos_impl = new DidaMeetingsPaxosServiceImpl(server_state);
 
 		// Create a new server to listen on port.
-		Server server = ServerBuilder.forPort(port).addService(service_impl).addService(master_impl)
-				.addService(paxos_impl).build();
+		Server server = ServerBuilder.forPort(port)
+            .addService(service_impl)
+            .addService(master_impl)
+            .addService(paxos_impl).build();
 		// Start the server.
 		server.start();
 		// Server threads are running in the background.

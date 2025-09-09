@@ -2,7 +2,6 @@ package didameetings.server;
 
 import didameetings.DidaMeetingsMaster;
 import didameetings.DidaMeetingsMasterServiceGrpc;
-
 import io.grpc.stub.StreamObserver;
 
 public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceImplBase {
@@ -20,7 +19,6 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceGrpc
 		int request_id = request.getReqid();
 		int new_ballot = request.getNewballot();
 		int completed_ballot = request.getCompletedballot();
-		;
 
 		// for debug purposes
 		System.out.println("Current ballot = " + this.server_state.getCurrentBallot() + " new ballot = " + new_ballot

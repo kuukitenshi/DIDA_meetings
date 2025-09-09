@@ -27,6 +27,10 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceGrpc.D
 			StreamObserver<DidaMeetingsPaxos.PhaseOneReply> responseObserver) {
 		// System.out.println("Receive phase1 request: \n" + request);
 
+		// debug modes
+		this.server_state.waitIfFrozen();
+		this.server_state.randomDelay();
+
 		int instance = request.getInstance();
 		int ballot = request.getRequestballot();
 		PaxosInstance entry = this.server_state.paxos_log.testAndSetEntry(instance, ballot);
@@ -68,6 +72,10 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceGrpc.D
 	public void phasetwo(DidaMeetingsPaxos.PhaseTwoRequest request,
 			StreamObserver<DidaMeetingsPaxos.PhaseTwoReply> responseObserver) {
 		// System.out.println ("Receive phase two request: \n" + request);
+
+		// debug modes
+		this.server_state.waitIfFrozen();
+		this.server_state.randomDelay();
 
 		int instance = request.getInstance();
 		int ballot = request.getRequestballot();
@@ -121,7 +129,6 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceGrpc.D
 				ArrayList<DidaMeetingsPaxos.LearnReply> learn_responses = new ArrayList<DidaMeetingsPaxos.LearnReply>();
 				GenericResponseCollector<DidaMeetingsPaxos.LearnReply> learn_collector = new GenericResponseCollector<DidaMeetingsPaxos.LearnReply>(
 						learn_responses, n_targets);
-				;
 				for (int i = 0; i < n_targets; i++) {
 					CollectorStreamObserver<DidaMeetingsPaxos.LearnReply> learn_observer = new CollectorStreamObserver<DidaMeetingsPaxos.LearnReply>(
 							learn_collector);
@@ -137,6 +144,10 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceGrpc.D
 	public void learn(DidaMeetingsPaxos.LearnRequest request,
 			StreamObserver<DidaMeetingsPaxos.LearnReply> responseObserver) {
 		// System.out.println("Receive learn request: \n" + request);
+
+		// debug modes
+		this.server_state.waitIfFrozen();
+		this.server_state.randomDelay();
 
 		int instance = request.getInstance();
 		int ballot = request.getBallot();
