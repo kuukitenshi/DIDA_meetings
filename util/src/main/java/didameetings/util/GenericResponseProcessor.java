@@ -1,8 +1,8 @@
 package didameetings.util;
 
-import java.util.ArrayList;
+import java.util.List;
 
 public abstract class GenericResponseProcessor<T> {
 
-    abstract boolean onNext(ArrayList<T> all_responses, T last_response);
+    abstract boolean onNext(List<T> allResponses, T lastResponse);
 }

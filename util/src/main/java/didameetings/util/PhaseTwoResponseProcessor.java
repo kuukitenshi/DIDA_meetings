@@ -1,40 +1,37 @@
 package didameetings.util;
 
-import java.util.ArrayList;
+import java.util.List;
 
-import didameetings.DidaMeetingsPaxos;
-import didameetings.DidaMeetingsPaxosServiceGrpc;
+import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 
-public class PhaseTwoResponseProcessor extends GenericResponseProcessor<DidaMeetingsPaxos.PhaseTwoReply> {
-	private boolean accepted;
-	private int maxballot;
-	private int quorum;
-	private int responses;
+public class PhaseTwoResponseProcessor extends GenericResponseProcessor<PhaseTwoReply> {
 
-	public PhaseTwoResponseProcessor(int q) {
-		this.accepted = true;
-		this.maxballot = 0;
-		this.quorum = q;
-		this.responses = 0;
-	}
+    private boolean accepted = true;
+    private int maxballot = 0;
+    private int responses = 0;
+    private int quorum;
 
-	public boolean getAccepted() {
-		return this.accepted;
-	}
+    public PhaseTwoResponseProcessor(int q) {
+        this.quorum = q;
+    }
 
-	public int getMaxballot() {
-		return this.maxballot;
-	}
+    public boolean getAccepted() {
+        return this.accepted;
+    }
 
-	public synchronized boolean onNext(ArrayList<DidaMeetingsPaxos.PhaseTwoReply> all_responses,
-			DidaMeetingsPaxos.PhaseTwoReply last_response) {
-		this.responses++;
-		if (last_response.getAccepted() == false) {
-			this.accepted = false;
-			if (last_response.getMaxballot() > this.maxballot)
-				this.maxballot = last_response.getMaxballot();
-			return true;
-		}
-		return responses >= quorum;
-	}
+    public int getMaxballot() {
+        return this.maxballot;
+    }
+
+    public synchronized boolean onNext(List<PhaseTwoReply> allResponses, PhaseTwoReply lastResponse) {
+        this.responses++;
+        if (!lastResponse.getAccepted()) {
+            this.accepted = false;
+            if (lastResponse.getMaxballot() > this.maxballot) {
+                this.maxballot = lastResponse.getMaxballot();
+            }
+            return true;
+        }
+        return this.responses >= this.quorum;
+    }
 }

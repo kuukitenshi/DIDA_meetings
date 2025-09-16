@@ -4,19 +4,16 @@ import io.grpc.stub.StreamObserver;
 
 public class CollectorStreamObserver<T> implements StreamObserver<T> {
 
-    didameetings.util.GenericResponseCollector collector;
-    private boolean done;
+    private boolean done = false;
+    GenericResponseCollector<T> collector;
 
-    public CollectorStreamObserver(GenericResponseCollector c) {
-        collector = c;
-        this.done = false;
+    public CollectorStreamObserver(GenericResponseCollector<T> c) {
+        this.collector = c;
     }
 
     @Override
     public void onNext(T value) {
-        // Handle the received response of type T
-        // System.out.println("Received response: " + value);
-        if (this.done == false) {
+        if (!this.done) {
             collector.addResponse(value);
             this.done = true;
         }
@@ -24,9 +21,7 @@ public class CollectorStreamObserver<T> implements StreamObserver<T> {
 
     @Override
     public void onError(Throwable t) {
-        // Handle error
-        // System.err.println("Error occurred: " + t.getMessage());
-        if (this.done == false) {
+        if (!this.done) {
             collector.addNoResponse();
             this.done = true;
         }
@@ -34,9 +29,7 @@ public class CollectorStreamObserver<T> implements StreamObserver<T> {
 
     @Override
     public void onCompleted() {
-        // Handle stream completion
-        // System.out.println("Stream completed");
-        if (this.done == false) {
+        if (!this.done) {
             collector.addNoResponse();
             this.done = true;
         }

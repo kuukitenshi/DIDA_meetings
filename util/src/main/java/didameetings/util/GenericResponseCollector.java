@@ -1,66 +1,63 @@
 package didameetings.util;
 
-import java.util.ArrayList;
+import java.util.List;
 
 public class GenericResponseCollector<T> {
-	private GenericResponseProcessor processor;
-	private ArrayList<T> collected_responses;
-	private int received;
-	private int pending;
-	private boolean done;
 
-	public GenericResponseCollector(ArrayList<T> responses, int maxresponses) {
-		this.processor = null;
-		this.collected_responses = responses;
-		this.received = 0;
-		this.pending = maxresponses;
-		this.done = false;
-	}
+    private boolean done = false;
+    private int received = 0;
+    private GenericResponseProcessor<T> processor = null;
+    private List<T> collectedResponses;
+    private int pending;
 
-	public GenericResponseCollector(ArrayList<T> responses, int maxresponses, GenericResponseProcessor p) {
-		this.processor = p;
-		this.collected_responses = responses;
-		this.received = 0;
-		this.pending = maxresponses;
-		this.done = false;
-	}
+    public GenericResponseCollector(List<T> responses, int maxResponses) {
+        this(responses, maxResponses, null);
+    }
 
-	public synchronized void addResponse(T resp) {
-		if (!this.done) {
-			collected_responses.add(resp);
-			if (this.processor != null)
-				this.done = this.processor.onNext(this.collected_responses, resp);
-		}
-		this.received++;
-		this.pending--;
-		if (this.pending == 0)
-			this.done = true;
-		notifyAll();
-	}
+    public GenericResponseCollector(List<T> responses, int maxResponses, GenericResponseProcessor<T> processor) {
+        this.collectedResponses = responses;
+        this.pending = maxResponses;
+        this.processor = processor;
+    }
 
-	public synchronized void addNoResponse() {
-		this.pending--;
-		if (this.pending == 0)
-			this.done = true;
-		notifyAll();
-	}
+    public synchronized void addResponse(T resp) {
+        if (!this.done) {
+            collectedResponses.add(resp);
+            if (this.processor != null)
+                this.done = this.processor.onNext(this.collectedResponses, resp);
+        }
+        this.received++;
+        this.pending--;
+        if (this.pending == 0) {
+            this.done = true;
+        }
+        notifyAll();
+    }
 
-	public synchronized void waitForQuorum(int quorum) {
-		while ((this.done == false) && (this.received < quorum)) {
-			try {
-				wait();
-			} catch (InterruptedException e) {
-			}
-		}
-		this.done = true;
-	}
+    public synchronized void addNoResponse() {
+        this.pending--;
+        if (this.pending == 0) {
+            this.done = true;
+        }
+        notifyAll();
+    }
 
-	public synchronized void waitUntilDone() {
-		while (this.done == false) {
-			try {
-				wait();
-			} catch (InterruptedException e) {
-			}
-		}
-	}
+    public synchronized void waitForQuorum(int quorum) {
+        while (!this.done && this.received < quorum) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+            }
+        }
+        this.done = true;
+    }
+
+    public synchronized void waitUntilDone() {
+        while (!this.done) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+            }
+        }
+    }
 }
