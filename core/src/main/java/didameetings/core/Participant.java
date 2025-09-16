@@ -1,12 +1,12 @@
 package didameetings.core;
 
 public class Participant {
-    private int id;
+
+    private final int id;
     private int topic;
 
     public Participant(int id) {
-        this.id = id;
-        this.topic = -1;
+        this(id, -1);
     }
 
     public Participant(int id, int topic) {

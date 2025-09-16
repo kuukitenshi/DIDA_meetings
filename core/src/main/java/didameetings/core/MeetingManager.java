@@ -1,170 +1,100 @@
 package didameetings.core;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MeetingManager {
-	private Hashtable<Integer, Meeting> open_meetings;
-	private Hashtable<Integer, Meeting> closed_meetings;
 
-	public MeetingManager() {
-		this.open_meetings = new Hashtable<Integer, Meeting>();
-		this.closed_meetings = new Hashtable<Integer, Meeting>();
-	}
+    private Map<Integer, Meeting> meetings = new HashMap<>();
 
-	public boolean open(Integer mid, int max) {
-		Meeting new_meeting = this.open_meetings.get(mid);
+    public boolean open(int mid, int max) {
+        if (this.meetings.containsKey(mid)) {
+            return false;
+        }
+        Meeting meeting = new Meeting(mid, max);
+        this.meetings.put(mid, meeting);
+        return true;
+    }
 
-		if (new_meeting != null)
-			return false;
+    public boolean add(int mid, int pid) {
+        Meeting meeting = this.meetings.get(mid);
+        if (meeting == null) {
+            return false;
+        }
+        return meeting.add(pid);
+    }
 
-		new_meeting = this.closed_meetings.get(mid);
-		if (new_meeting != null)
-			return false;
+    public boolean setTopic(int mid, int pid, int topic) {
+        Meeting meeting = this.meetings.get(mid);
+        if (meeting == null) {
+            return false;
+        }
+        return meeting.setTopic(pid, topic);
+    }
 
-		new_meeting = new Meeting(mid, max);
-		this.open_meetings.put(mid, new_meeting);
-		return true;
-	}
+    public boolean addAndClose(Integer mid, Integer pid) {
+        Meeting meeting = this.meetings.get(mid);
+        if (meeting == null) {
+            return false;
+        }
+        if (!meeting.add(pid)) {
+            return false;
+        }
+        if (meeting.size() == meeting.max()) {
+            meeting.close();
+        }
+        return true;
+    }
 
-	public boolean add(Integer mid, Integer pid) {
-		Meeting meeting = this.open_meetings.get(mid);
+    public boolean close(int mid) {
+        Meeting meeting = this.meetings.get(mid);
+        if (meeting == null) {
+            return false;
+        }
+        meeting.close();
+        return true;
+    }
 
-		if (meeting == null)
-			return false;
+    public List<Integer> participantsWithTopic(int mid) {
+        Meeting meeting = this.meetings.get(mid);
+        if (meeting == null) {
+            return null;
+        }
+        return meeting.participantsWithTopic();
+    }
 
-		return meeting.add(pid);
-	}
+    public List<Integer> participantsWithoutTopic(int mid) {
+        Meeting meeting = this.meetings.get(mid);
+        if (meeting == null) {
+            return null;
+        }
+        return meeting.participantsWithoutTopic();
+    }
 
-	public boolean setTopic(Integer mid, Integer pid, int topic_id) {
-		Meeting meeting = this.open_meetings.get(mid);
+    public void dump() {
+        List<Meeting> closedMeetings = this.meetings.values().stream().filter(m -> m.isClosed()).toList();
+        List<Meeting> openMeetings = this.meetings.values().stream().filter(m -> !m.isClosed()).toList();
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n ----------- Open meetings ----------- \n");
+        dumpMeetings(openMeetings, sb);
+        sb.append("\n ----------- Closed meetings ----------- \n");
+        dumpMeetings(closedMeetings, sb);
+        sb.append("\n -----------    done     ----------- \n");
+    }
 
-		if (meeting == null)
-			meeting = this.closed_meetings.get(mid);
-
-		if (meeting == null)
-			return false;
-
-		return meeting.setTopic(pid, topic_id);
-	}
-
-	public boolean addAndClose(Integer mid, Integer pid) {
-		Meeting meeting = this.open_meetings.get(mid);
-
-		if (meeting != null) {
-			boolean added = meeting.add(pid);
-			// check if add was successful
-			if (added) {
-				if (meeting.size() == meeting.max()) {
-					meeting.close();
-					this.closed_meetings.put(mid, meeting);
-					this.open_meetings.remove(mid);
-				}
-				return true;
-			} else {
-				return false;
-			}
-		} else
-			return false;
-	}
-
-	public boolean close(Integer mid) {
-		Meeting meeting = this.closed_meetings.get(mid);
-
-		if (meeting != null)
-			return true;
-
-		meeting = this.open_meetings.get(mid);
-
-		if (meeting == null)
-			return false;
-
-		meeting.close();
-
-		this.closed_meetings.put(mid, meeting);
-		this.open_meetings.remove(mid);
-		return true;
-	}
-
-	public Enumeration<Integer> participantsWithTopic(int mid) {
-		Meeting meeting = this.open_meetings.get(mid);
-		if (meeting == null)
-			meeting = this.closed_meetings.get(mid);
-		if (meeting == null)
-			return null;
-		else
-			return meeting.participantsWithTopic();
-	}
-
-	public Enumeration<Integer> participantsWithoutTopic(int mid) {
-		Meeting meeting = this.open_meetings.get(mid);
-		if (meeting == null)
-			meeting = this.closed_meetings.get(mid);
-		if (meeting == null)
-			return null;
-		else
-			return meeting.participantsWithoutTopic();
-	}
-
-	public boolean dump() {
-		Enumeration<Integer> ids;
-		Integer mid;
-		Integer pid;
-		int topic;
-		Meeting m;
-		Enumeration<Integer> plist;
-
-		System.out.println("\n ----------- Open meetings ----------- \n");
-
-		ids = this.open_meetings.keys();
-		while (ids.hasMoreElements()) {
-			mid = ids.nextElement();
-			m = this.open_meetings.get(mid);
-
-			System.out.println("\n\t Meeting " + mid);
-
-			System.out.println("\n\t\t with topic: ");
-			plist = m.participantsWithTopic();
-			while (plist.hasMoreElements()) {
-				pid = plist.nextElement();
-				topic = m.getTopic(pid);
-				System.out.println("\n\t\t\t(" + pid + "," + topic + ") ");
-			}
-
-			System.out.println("\n\t\t without topic: ");
-			plist = m.participantsWithoutTopic();
-			while (plist.hasMoreElements()) {
-				pid = plist.nextElement();
-				System.out.println("\n\t\t\t(" + pid + ") ");
-			}
-		}
-
-		System.out.println("\n ----------- Closed meetings ----------- \n");
-
-		ids = this.closed_meetings.keys();
-		while (ids.hasMoreElements()) {
-			mid = ids.nextElement();
-			m = this.closed_meetings.get(mid);
-
-			System.out.println("\n\t Meeting " + mid);
-
-			System.out.println("\n\t\t with topic: ");
-			plist = m.participantsWithTopic();
-			while (plist.hasMoreElements()) {
-				pid = plist.nextElement();
-				topic = m.getTopic(pid);
-				System.out.println("\n\t\t\t(" + pid + "," + topic + ") ");
-			}
-
-			System.out.println("\n\t\t without topic: ");
-			plist = m.participantsWithoutTopic();
-			while (plist.hasMoreElements()) {
-				pid = plist.nextElement();
-				System.out.println("\n\t\t\t(" + pid + ") ");
-			}
-		}
-
-		System.out.println("\n -----------    done     ----------- \n");
-
-		return true;
-	}
+    private void dumpMeetings(List<Meeting> meetings, StringBuilder sb) {
+        for (Meeting m : meetings) {
+            sb.append("\n\t Meeting " + m.getId());
+            sb.append("\n\t\t with topic: ");
+            for (int pid : m.participantsWithTopic()) {
+                int topic = m.getTopic(pid);
+                sb.append(String.format("\n\t\t\t(%s,%s) ", pid, topic));
+            }
+            sb.append("\n\t\t without topic: ");
+            for (int pid : m.participantsWithoutTopic()) {
+                sb.append(String.format("\n\t\t\t(%s) ", pid));
+            }
+        }
+    }
 }

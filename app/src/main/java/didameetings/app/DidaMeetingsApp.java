@@ -315,13 +315,13 @@ public class DidaMeetingsApp {
                         meeting = this.closed_meetings.get(mid);
                     }
                     if (meeting != null) {
-                        Enumeration<Integer> participants = meeting.participantsWithoutTopic();
-                        int n_candidates = meeting.numberOfParticipantsWithoutTopic();
+                        List<Integer> participants = meeting.participantsWithoutTopic();
+                        int n_candidates = participants.size();
                         if (n_candidates > 0) {
                             int selection = rnd.nextInt(n_candidates);
                             int pid = 0;
-                            while (participants.hasMoreElements() && (selection >= 0)) {
-                                pid = participants.nextElement();
+                            for (int i = 0; i < participants.size() && selection >= 0; i++) {
+                                pid = participants.get(i);
                                 selection--;
                             }
                             int topic = rnd.nextInt(this.topic_range);
