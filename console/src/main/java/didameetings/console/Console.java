@@ -1,11 +1,19 @@
 package didameetings.console;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import didameetings.DidaMeetingsMaster;
 import didameetings.DidaMeetingsMasterServiceGrpc;
-
-import didameetings.configs.*;
+import didameetings.DidaMeetingsMaster.NewBallotReply;
+import didameetings.DidaMeetingsMaster.NewBallotRequest;
+import didameetings.DidaMeetingsMaster.SetDebugReply;
+import didameetings.DidaMeetingsMaster.SetDebugRequest;
+import didameetings.DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceStub;
 
 import didameetings.util.*;
 
@@ -14,210 +22,177 @@ import io.grpc.ManagedChannelBuilder;
 
 public class Console {
 
-	private int ballot_completed = -1;
-	private int last_ballot = -1;
+    private static final String ASCII_ART = """
+            ▄ ▄▖▄ ▄▖  ▖  ▖▄▖▄▖▄▖▄▖▖ ▖▄▖▄▖  ▄▖▄▖▖ ▖▄▖▄▖▖ ▄▖
+            ▌▌▐ ▌▌▌▌  ▛▖▞▌▙▖▙▖▐ ▐ ▛▖▌▌ ▚   ▌ ▌▌▛▖▌▚ ▌▌▌ ▙▖
+            ▙▘▟▖▙▘▛▌  ▌▝ ▌▙▖▙▖▐ ▟▖▌▝▌▙▌▄▌  ▙▖▙▌▌▝▌▄▌▙▌▙▖▙▖
+            """;
 
-	public synchronized void setBallotCompleted(int ballot) {
-		if (ballot > this.ballot_completed)
-			this.ballot_completed = ballot;
-	}
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ManagedChannel[] channels;
+    private final DidaMeetingsMasterServiceStub[] stubs;
+    private AtomicInteger completedBallot = new AtomicInteger(-1);
+    private int sequenceNumber = 0;
 
-	public synchronized int getBallotCompleted() {
-		return this.ballot_completed;
-	}
+    public Console(Args cliArgs) {
+        int nodeCount = cliArgs.scheduler().allparticipants().size();
+        this.channels = new ManagedChannel[nodeCount];
+        this.stubs = new DidaMeetingsMasterServiceStub[nodeCount];
+        for (int i = 0; i < nodeCount; i++) {
+            String address = String.format("%s:%s", cliArgs.host(), cliArgs.port() + i);
+            this.channels[i] = ManagedChannelBuilder.forTarget(address).usePlaintext().build();
+            this.stubs[i] = DidaMeetingsMasterServiceGrpc.newStub(this.channels[i]);
+        }
+    }
 
-	public synchronized int getLastBallot() {
-		return this.last_ballot;
-	}
+    public void run() {
+        boolean shouldQuit = false;
+        helpCommand();
+        try (Scanner sc = new Scanner(System.in)) {
+            while (!shouldQuit) {
+                System.out.print("~> ");
+                String input = sc.nextLine();
+                String[] split = input.split(" ");
+                String command = split[0].toLowerCase();
+                String[] commandArgs = Arrays.copyOfRange(split, 1, split.length);
+                switch (command) {
+                    case "help":
+                        helpCommand();
+                        break;
+                    case "debug":
+                        debugCommand(commandArgs);
+                        break;
+                    case "ballot":
+                        ballotCommand(commandArgs);
+                        break;
+                    case "exit":
+                        shouldQuit = true;
+                        break;
+                    default:
+                        System.err.println("Invalid command! Use help to show commands.");
+                        break;
+                }
+            }
+        }
+    }
 
-	public synchronized void setLastBallot(int ballot) {
-		if (ballot > this.last_ballot)
-			this.last_ballot = ballot;
-	}
+    public void shutdown() {
+        this.executor.shutdownNow();
+        for (ManagedChannel channel : this.channels) {
+            channel.shutdownNow();
+        }
+    }
 
-	public void main_loop(String[] args) throws Exception {
-		int n_servers = 6;
-		int replica = 0;
-		int mode = 0;
-		int client_id = 0;
-		int sequence_number = 0;
-		char schedule = 'A';
-		ConfigurationScheduler scheduler = null;
+    private void helpCommand() {
+        System.out.println("+----------[ HELP ]----------+");
+        System.out.println("> help - display help menu.");
+        System.out.println(
+                "> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
+        System.out.println("> debug <mode> <replica> - sets the given replica in the specified debug mode.");
+        System.out.println("> exit - quits the console.\n");
+    }
 
-		System.out.println(DidaMeetingsMaster.class.getSimpleName());
+    private void debugCommand(String[] args) {
+        if (args.length != 2) {
+            System.err.println("Invalid number of arguments!");
+            return;
+        }
+        int mode = 0;
+        try {
+            mode = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            System.err.println("Debug mode needs to be a number!");
+            return;
+        }
+        int replica = 0;
+        try {
+            replica = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            System.err.println("Replica needs to be a number!");
+            return;
+        }
 
-		// receive and print arguments
-		System.out.printf("Received %d arguments%n", args.length);
-		for (int i = 0; i < args.length; i++) {
-			System.out.printf("arg[%d] = %s%n", i, args[i]);
-		}
+        int reqid = nextRequestId();
+        SetDebugRequest request = SetDebugRequest.newBuilder()
+                .setReqid(reqid)
+                .setMode(mode)
+                .build();
+        List<SetDebugReply> responses = new ArrayList<>();
+        GenericResponseCollector<SetDebugReply> collector = new GenericResponseCollector<>(responses, 1);
+        CollectorStreamObserver<SetDebugReply> observer = new CollectorStreamObserver<>(collector);
+        this.stubs[replica].setdebug(request, observer);
+        collector.waitForQuorum(1);
+        if (responses.isEmpty()) {
+            System.err.println("No reply received for the given replica :(");
+            return;
+        }
+        SetDebugReply reply = responses.getFirst();
+        if (reply.getAck()) {
+            System.out.println("Debug mode has been set!");
+        } else {
+            System.out.println("DEbug mode has been denied!");
+        }
+    }
 
-		// check arguments
-		if (args.length < 3) {
-			System.err.println("Argument(s) missing!");
-			System.err.printf("Usage: java %s host port schedule%n", Console.class.getName());
-			return;
-		}
+    private void ballotCommand(String[] args) {
+        if (args.length != 2) {
+            System.err.println("Invalid number of arguments!");
+            return;
+        }
+        int newBallot = 0;
+        try {
+            newBallot = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            System.err.println("Ballot needs to be a number!");
+            return;
+        }
+        int replica = 0;
+        try {
+            replica = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            System.err.println("Replica needs to be a number!");
+            return;
+        }
 
-		// set servers
-		String host = args[0];
-		int port = Integer.parseInt(args[1]);
+        int reqid = nextRequestId();
+        NewBallotRequest request = NewBallotRequest.newBuilder()
+                .setReqid(reqid)
+                .setNewballot(newBallot)
+                .setCompletedballot(completedBallot.get())
+                .build();
+        List<NewBallotReply> responses = new ArrayList<>();
+        GenericResponseCollector<NewBallotReply> collector = new GenericResponseCollector<>(responses, 1);
+        CollectorStreamObserver<NewBallotReply> observer = new CollectorStreamObserver<>(collector);
+        this.stubs[replica].newballot(request, observer);
+        System.out.println("Request sent!");
 
-		schedule = args[2].charAt(0);
-		scheduler = new ConfigurationScheduler(schedule);
-		n_servers = scheduler.allparticipants().size();
+        this.executor.submit(() -> {
+            collector.waitForQuorum(1);
+            if (responses.isEmpty()) {
+                System.err.println("No reply received from the given replica :(");
+                return;
+            }
+            NewBallotReply reply = responses.getFirst();
+            int completed = reply.getCompletedballot();
+            this.completedBallot.set(completed);
+            System.out.println("New completed ballot: " + completed);
+        });
+    }
 
-		String[] targets = new String[n_servers];
-		for (int i = 0; i < n_servers; i++) {
-			int target_port = port + i;
-			targets[i] = new String();
-			targets[i] = host + ":" + target_port;
-			System.out.printf("targets[%d] = %s%n", i, targets[i]);
-		}
+    private int nextRequestId() {
+        this.sequenceNumber++;
+        return this.sequenceNumber * 100;
+    }
 
-		// Let us use plaintext communication because we do not have certificates
-		ManagedChannel[] channels = new ManagedChannel[n_servers];
-		for (int i = 0; i < n_servers; i++)
-			channels[i] = ManagedChannelBuilder.forTarget(targets[i]).usePlaintext().build();
-
-		DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceStub[] console_async_stubs = new DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceStub[n_servers];
-
-		for (int i = 0; i < n_servers; i++) {
-			console_async_stubs[i] = DidaMeetingsMasterServiceGrpc.newStub(channels[i]);
-		}
-
-		Scanner scanner = new Scanner(System.in);
-		String command;
-
-		boolean keep_going = true;
-
-		while (keep_going) {
-			System.out.print("console> ");
-			command = scanner.nextLine();
-			String[] commandParts = command.split(" ");
-			String mainCommand = commandParts[0].toLowerCase();
-			String parameter1 = commandParts.length > 1 ? commandParts[1] : null;
-			String parameter2 = commandParts.length > 2 ? commandParts[2] : null;
-			String parameter3 = commandParts.length > 3 ? commandParts[3] : null;
-
-			switch (mainCommand) {
-				case "help":
-					System.out.println("\thelp");
-					System.out.println("\tballot number replica");
-					System.out.println("\tdebug mode replica");
-					System.out.println("\texit");
-					break;
-				case "ballot":
-					System.out.println("ballot " + parameter1 + " " + parameter2);
-					if ((parameter1 != null) && (parameter2 != null)) {
-						int ballot_number = Integer.parseInt(parameter1);
-						if (ballot_number < this.getLastBallot())
-							System.out.println("usage: ballot must be larger or equal than " + last_ballot + ".\n");
-						else {
-							this.setLastBallot(ballot_number);
-							try {
-								replica = Integer.parseInt(parameter2);
-
-								System.out
-										.println("sending ballot " + ballot_number + " to replica " + replica + ".\n");
-
-								sequence_number = sequence_number + 1;
-								int reqid = sequence_number * 100 + client_id;
-
-								DidaMeetingsMaster.NewBallotRequest.Builder newballot_request = DidaMeetingsMaster.NewBallotRequest
-										.newBuilder();
-								ArrayList<DidaMeetingsMaster.NewBallotReply> newballot_responses = new ArrayList<DidaMeetingsMaster.NewBallotReply>();
-								;
-								GenericResponseCollector<DidaMeetingsMaster.NewBallotReply> newballot_collector = new GenericResponseCollector<DidaMeetingsMaster.NewBallotReply>(
-										newballot_responses, 1);
-								CollectorStreamObserver<DidaMeetingsMaster.NewBallotReply> newballot_observer = new CollectorStreamObserver<DidaMeetingsMaster.NewBallotReply>(
-										newballot_collector);
-								newballot_request.setReqid(reqid);
-								newballot_request.setNewballot(ballot_number);
-								newballot_request.setCompletedballot(this.ballot_completed);
-								console_async_stubs[replica].newballot(newballot_request.build(), newballot_observer);
-
-								// collect the result in background
-								new Thread(new Runnable() {
-									public void run() {
-										newballot_collector.waitForQuorum(1);
-										if (newballot_responses.size() >= 1) {
-											Iterator<DidaMeetingsMaster.NewBallotReply> newballot_iterator = newballot_responses
-													.iterator();
-											DidaMeetingsMaster.NewBallotReply newballot_reply = newballot_iterator
-													.next();
-											int completed = newballot_reply.getCompletedballot();
-											System.out.println("reply received to new ballot request for ballot = "
-													+ ballot_number + " with completed = " + completed);
-											setBallotCompleted(completed);
-										} else
-											System.out.println("no reply received to new ballot request for ballot = "
-													+ ballot_number);
-									}
-								}).start();
-							} catch (NumberFormatException e) {
-							}
-						}
-					} else
-						System.out.println("usage: ballot number replica");
-					break;
-				case "debug":
-					System.out.println("debug " + parameter1 + " " + parameter2);
-					if ((parameter1 != null) && (parameter2 != null)) {
-						try {
-							mode = Integer.parseInt(parameter1);
-							replica = Integer.parseInt(parameter2);
-							System.out.println("setting debug with mode " + mode + " on replica " + replica);
-
-							sequence_number = sequence_number + 1;
-							int reqid = sequence_number * 100 + client_id;
-
-							DidaMeetingsMaster.SetDebugRequest.Builder setdebug_request = DidaMeetingsMaster.SetDebugRequest
-									.newBuilder();
-							ArrayList<DidaMeetingsMaster.SetDebugReply> setdebug_responses = new ArrayList<DidaMeetingsMaster.SetDebugReply>();
-							;
-							GenericResponseCollector<DidaMeetingsMaster.SetDebugReply> setdebug_collector = new GenericResponseCollector<DidaMeetingsMaster.SetDebugReply>(
-									setdebug_responses, 1);
-							CollectorStreamObserver<DidaMeetingsMaster.SetDebugReply> setdebug_observer = new CollectorStreamObserver<DidaMeetingsMaster.SetDebugReply>(
-									setdebug_collector);
-							setdebug_request.setReqid(reqid);
-							setdebug_request.setMode(mode);
-							console_async_stubs[replica].setdebug(setdebug_request.build(), setdebug_observer);
-							setdebug_collector.waitForQuorum(1);
-							if (setdebug_responses.size() >= 1) {
-								Iterator<DidaMeetingsMaster.SetDebugReply> setdebug_iterator = setdebug_responses
-										.iterator();
-								DidaMeetingsMaster.SetDebugReply setdebug_reply = setdebug_iterator.next();
-								System.out.println("reply = " + setdebug_reply.getAck());
-							} else
-								System.out.println("no reply received");
-						} catch (NumberFormatException e) {
-							System.out.println("usage: debug mode replica");
-						}
-					} else {
-						System.out.println("usage: debug mode replica");
-					}
-					break;
-				case "exit":
-					keep_going = false;
-					break;
-				case "":
-					break;
-				default:
-					System.out.println("Unknown command: " + mainCommand);
-					break;
-			}
-		}
-		System.out.println("Exiting...");
-		for (int i = 0; i < n_servers; i++) {
-			channels[i].shutdownNow();
-		}
-		scanner.close();
-	}
-
-	public static void main(String[] args) throws Exception {
-		System.out.println("Starting...");
-		Console console = new Console();
-		console.main_loop(args);
-	}
+    public static void main(String[] args) throws Exception {
+        Args cliArgs = Args.parse(args);
+        if (cliArgs == null) {
+            System.exit(1);
+        }
+        System.out.println(ASCII_ART);
+        Console console = new Console(cliArgs);
+        console.run();
+        console.shutdown();
+        System.out.println("Goodbye");
+    }
 }
