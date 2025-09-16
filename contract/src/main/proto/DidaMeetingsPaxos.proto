@@ -50,8 +50,3 @@ service DidaMeetingsPaxosService {
   rpc learn (LearnRequest) returns (LearnReply);
 }
 
-
-
-
-
-
