@@ -1,66 +1,67 @@
 package didameetings.configs;
 
-import java.util.*;
+import java.util.List;
+import java.util.Arrays;
 
 public class ScheduleB implements Schedule {
-	
-	private List<Integer> all_participants = Arrays.asList(0, 1, 2, 3, 4, 5);
-	private List<Integer> all_learners = Arrays.asList(0, 1, 2, 3, 4, 5);
-	private List<Integer> acceptors_start = Arrays.asList(0, 1, 2);
-	private List<Integer> acceptors_end = Arrays.asList(1, 2, 3, 4, 5);
-	private List<Integer> acceptors_all = Arrays.asList(0, 1, 2, 3, 4, 5);
 
-	public ScheduleB() {}
+    private List<Integer> procs = Arrays.asList(0, 1, 2, 3, 4, 5);
+    private List<Integer> startingAcceptors = Arrays.asList(0, 1, 2);
+    private List<Integer> endingAcceptors = Arrays.asList(1, 2, 3, 4, 5);
 
-	public List<Integer> learners(int ballot) {
-		return this.all_learners;
-	}
+    public ScheduleB() {
+    }
 
-	public List<Integer> acceptors(int ballot) {
-		if (ballot < 2)
-			return this.acceptors_start;
-		else
-			return this.acceptors_end;
-	}
+    public List<Integer> learners(int ballot) {
+        return this.procs;
+    }
 
-	public List<Integer> acceptorsinrange(int low_ballot, int high_ballot) {
-		if (high_ballot < 2)
-			return this.acceptors_start;
-		else if (low_ballot >= 2)
-			return this.acceptors_end;
-		else
-			return this.acceptors_all;
-	}
+    public List<Integer> acceptors(int ballot) {
+        if (ballot < 2) {
+            return this.startingAcceptors;
+        }
+        return this.endingAcceptors;
+    }
 
-	public List<Integer> allparticipantsinballot(int ballot) {
-		return this.all_participants;
-	}
+    public List<Integer> acceptorsinrange(int low_ballot, int high_ballot) {
+        if (high_ballot < 2) {
+            return this.startingAcceptors;
+        }
+        if (low_ballot >= 2) {
+            return this.endingAcceptors;
+        }
+        return this.procs;
+    }
 
-	public List<Integer> allparticipants() {
-		return this.all_participants;
-	}
+    public List<Integer> allparticipantsinballot(int ballot) {
+        return this.procs;
+    }
 
-	public boolean isacceptor(int node, int ballot) {
-		if (ballot < 2)
-			return this.acceptors_start.contains(node);
-		else
-			return this.acceptors_end.contains(node);
-	}
+    public List<Integer> allparticipants() {
+        return this.procs;
+    }
 
-	public Integer leader(int ballot) {
-		if (ballot < 2)
-			return ballot;
-		else if (ballot < 5)
-			return ballot + 1;
-		else
-			return 5;
-	}
+    public boolean isacceptor(int node, int ballot) {
+        if (ballot < 2) {
+            return this.startingAcceptors.contains(node);
+        }
+        return this.endingAcceptors.contains(node);
+    }
 
-	public Integer quorum(int ballot) {
-		if (ballot < 2)
-			return 2;
-		else
-			return 3;
-	}
+    public int leader(int ballot) {
+        if (ballot < 2) {
+            return ballot;
+        }
+        if (ballot < 5) {
+            return ballot + 1;
+        }
+        return 5;
+    }
 
+    public int quorum(int ballot) {
+        if (ballot < 2) {
+            return 2;
+        }
+        return 3;
+    }
 }

@@ -1,45 +1,41 @@
 package didameetings.configs;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 
 public class ScheduleA implements Schedule {
 
-    private List<Integer> all_participants = Arrays.asList(0, 1, 2);
-    private List<Integer> all_learners = Arrays.asList(0, 1, 2);
-    private List<Integer> all_acceptors = Arrays.asList(0, 1, 2);
-
-    public ScheduleA() {}
+    private List<Integer> procs = Arrays.asList(0, 1, 2);
 
     public List<Integer> learners(int ballot) {
-        return this.all_learners;
+        return this.procs;
     }
 
     public List<Integer> acceptors(int ballot) {
-        return this.all_acceptors;
+        return this.procs;
     }
 
     public boolean isacceptor(int node, int ballot) {
-        return this.all_acceptors.contains(node);
+        return this.procs.contains(node);
     }
 
     public List<Integer> acceptorsinrange(int low_ballot, int high_ballot) {
-        return this.all_acceptors;
+        return this.procs;
     }
 
     public List<Integer> allparticipantsinballot(int ballot) {
-        return this.all_participants;
+        return this.procs;
     }
 
     public List<Integer> allparticipants() {
-        return this.all_participants;
+        return this.procs;
     }
 
-    public Integer leader(int ballot) {
-        int leader = ballot % 3;
-        return leader;
+    public int leader(int ballot) {
+        return ballot % 3;
     }
 
-    public Integer quorum(int ballot) {
+    public int quorum(int ballot) {
         return 2;
     }
 }

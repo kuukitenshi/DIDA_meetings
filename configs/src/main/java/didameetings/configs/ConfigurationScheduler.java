@@ -1,57 +1,55 @@
 package didameetings.configs;
 
-import java.util.*;
+import java.util.List;
 
 public class ConfigurationScheduler {
-    private Schedule s;
+
+    private Schedule schedule;
 
     public ConfigurationScheduler() {
-        s = new ScheduleA();
+        this('A');
     }
 
     public ConfigurationScheduler(char option) {
-        if (option == 'B')
-            s = new ScheduleB();
-        else
-            s = new ScheduleA();
+        setSchedule(option);
     }
 
     public void setSchedule(char option) {
         if (option == 'A')
-            s = new ScheduleA();
+            schedule = new ScheduleA();
         else if (option == 'B')
-            s = new ScheduleB();
+            schedule = new ScheduleB();
     }
 
     public List<Integer> learners(int ballot) {
-        return s.learners(ballot);
+        return schedule.learners(ballot);
     }
 
     public List<Integer> acceptors(int ballot) {
-        return s.acceptors(ballot);
+        return schedule.acceptors(ballot);
     }
 
     public List<Integer> acceptorsinrange(int low_ballot, int high_ballot) {
-        return s.acceptorsinrange(low_ballot, high_ballot);
+        return schedule.acceptorsinrange(low_ballot, high_ballot);
     }
 
     public boolean isacceptor(int node, int ballot) {
-        return s.isacceptor(node, ballot);
+        return schedule.isacceptor(node, ballot);
     }
 
-    public Integer leader(int ballot) {
-        return s.leader(ballot);
+    public int leader(int ballot) {
+        return schedule.leader(ballot);
     }
 
     public List<Integer> allparticipantsinballot(int ballot) {
-        return s.allparticipantsinballot(ballot);
+        return schedule.allparticipantsinballot(ballot);
     }
 
     public List<Integer> allparticipants() {
-        return s.allparticipants();
+        return schedule.allparticipants();
     }
 
-    public Integer quorum(int ballot) {
-        return s.quorum(ballot);
+    public int quorum(int ballot) {
+        return schedule.quorum(ballot);
     }
 }
