@@ -81,6 +81,7 @@ public class MeetingManager {
         sb.append("\n ----------- Closed meetings ----------- \n");
         dumpMeetings(closedMeetings, sb);
         sb.append("\n -----------    done     ----------- \n");
+        System.out.println(sb.toString());
     }
 
     private void dumpMeetings(List<Meeting> meetings, StringBuilder sb) {

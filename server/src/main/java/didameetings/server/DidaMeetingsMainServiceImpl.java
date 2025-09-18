@@ -25,6 +25,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void open(OpenRequest request, StreamObserver<OpenReply> responseObserver) {
+        System.out.println("[Main] open " + request);
         int requestId = request.getReqid();
         int mid = request.getMeetingid();
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.OPEN, mid);
@@ -39,6 +40,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void add(AddRequest request, StreamObserver<AddReply> responseObserver) {
+        System.out.println("[Main] add " + request);
         int requestId = request.getReqid();
         int mid = request.getMeetingid();
         int pid = request.getParticipantid();
@@ -54,6 +56,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void topic(TopicRequest request, StreamObserver<TopicReply> responseObserver) {
+        System.out.println("[Main] topic " + request);
         int requestId = request.getReqid();
         int mid = request.getMeetingid();
         int pid = request.getParticipantid();
@@ -70,6 +73,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void close(CloseRequest request, StreamObserver<CloseReply> responseObserver) {
+        System.out.println("[Main] close " + request);
         int requestId = request.getReqid();
         int meetingId = request.getMeetingid();
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.CLOSE, meetingId);
@@ -84,6 +88,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void dump(DumpRequest request, StreamObserver<DumpReply> responseObserver) {
+        System.out.println("[Main] dump " + request);
         int requestId = request.getReqid();
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.DUMP);
         boolean result = processCommand(requestId, command);

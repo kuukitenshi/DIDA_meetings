@@ -1,18 +1,18 @@
 package didameetings.server;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import didameetings.DidaMeetingsPaxos.PhaseOneReply;
 import didameetings.DidaMeetingsPaxos.PhaseOneRequest;
 import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
-import didameetings.util.GenericResponseCollector;
-import didameetings.util.CollectorStreamObserver;
-import didameetings.util.PhaseOneProcessor;
-import didameetings.util.PhaseTwoResponseProcessor;
-
 import didameetings.configs.ConfigurationScheduler;
 import didameetings.core.MeetingManager;
+import didameetings.util.CollectorStreamObserver;
+import didameetings.util.GenericResponseCollector;
+import didameetings.util.PhaseOneProcessor;
+import didameetings.util.PhaseTwoResponseProcessor;
 
 public class MainLoop implements Runnable {
 
@@ -72,6 +72,7 @@ public class MainLoop implements Runnable {
                         this.state.setCompletedBallot(ballot);
                         paxosInstance.commandId = phaseTwoValue;
                         paxosInstance.decided = true;
+                        System.out.println("[MainLoop] Decided instance " + instanceId + " with reqid=" + phaseTwoValue);
                     }
                 }
             }
@@ -91,6 +92,9 @@ public class MainLoop implements Runnable {
         }
 
         boolean result = processRequest(request);
+        System.out.println("[MainLoop] Executed " + request.getCommand().action() +
+                "(mid=" + request.getCommand().meetingId() + ", pid=" + request.getCommand().participantId() +
+                ", topic=" + request.getCommand().topicId() + ") => result=" + result);
         request.setResponse(result);
         this.state.getRequestHistory().moveToProcessed(request.getId());
     }
