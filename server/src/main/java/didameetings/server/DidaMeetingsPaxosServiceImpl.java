@@ -1,194 +1,138 @@
-
 package didameetings.server;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import didameetings.DidaMeetingsMain;
-import didameetings.DidaMeetingsPaxos;
-import didameetings.DidaMeetingsPaxosServiceGrpc;
-
+import didameetings.DidaMeetingsPaxos.LearnReply;
+import didameetings.DidaMeetingsPaxos.LearnRequest;
+import didameetings.DidaMeetingsPaxos.PhaseOneReply;
+import didameetings.DidaMeetingsPaxos.PhaseOneRequest;
+import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
+import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
+import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceImplBase;
 import didameetings.util.GenericResponseCollector;
 import didameetings.util.CollectorStreamObserver;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import io.grpc.Context;
 
-public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceImplBase {
-	DidaMeetingsServerState server_state;
+public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBase {
 
-	public DidaMeetingsPaxosServiceImpl(DidaMeetingsServerState state) {
-		this.server_state = state;
-	}
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final DidaMeetingsServerState state;
+    private final MainLoop mainLoop;
 
-	@Override
-	public void phaseone(DidaMeetingsPaxos.PhaseOneRequest request,
-			StreamObserver<DidaMeetingsPaxos.PhaseOneReply> responseObserver) {
-		// System.out.println("Receive phase1 request: \n" + request);
+    public DidaMeetingsPaxosServiceImpl(DidaMeetingsServerState state, MainLoop mainLoop) {
+        this.state = state;
+        this.mainLoop = mainLoop;
+    }
 
-		// debug modes
-		this.server_state.waitIfFrozen();
-		this.server_state.randomDelay();
+    @Override
+    public void phaseone(PhaseOneRequest request, StreamObserver<PhaseOneReply> responseObserver) {
+        int instance = request.getInstance();
+        int ballot = request.getRequestballot();
 
-		int instance = request.getInstance();
-		int ballot = request.getRequestballot();
-		PaxosInstance entry = this.server_state.paxos_log.testAndSetEntry(instance, ballot);
-		boolean accepted = false;
-		int value = entry.command_id;
-		int valballot = entry.write_ballot;
+        PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance, ballot);
+        boolean accepted = false;
+        int value = entry.commandId;
+        int valballot = entry.writeBallot;
+        if (ballot >= this.state.getCurrentBallot()) {
+            accepted = true;
+            this.state.setCurrentBallot(ballot);
+            entry.readBallot = ballot;
+        }
+        int maxballot = this.state.getCurrentBallot();
 
-		if (ballot >= this.server_state.getCurrentBallot()) {
-			accepted = true;
-			this.server_state.setCurrentBallot(ballot);
-			entry.read_ballot = ballot;
-		}
+        PhaseOneReply response = PhaseOneReply.newBuilder()
+                .setInstance(instance)
+                .setServerid(this.state.getServerId())
+                .setRequestballot(ballot)
+                .setAccepted(accepted)
+                .setValue(value)
+                .setValballot(valballot)
+                .setMaxballot(maxballot)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-		int maxballot = this.server_state.getCurrentBallot();
+    @Override
+    public void phasetwo(PhaseTwoRequest request, StreamObserver<PhaseTwoReply> responseObserver) {
+        int instance = request.getInstance();
+        int ballot = request.getRequestballot();
+        int value = request.getValue();
+        PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance);
+        boolean accepted = false;
+        int maxballot = ballot;
 
-		// System.out.println("Instance = " + instance + " ballot = " + ballot + "
-		// current_ballot = " + this.server_state.getCurrentBallot() + " val = " + value
-		// + " valballot = " + valballot + " maxballot = " + maxballot + " accepted = "
-		// + accepted);
+        if (ballot >= this.state.getCurrentBallot()) {
+            accepted = true;
+            entry.commandId = value;
+            entry.writeBallot = ballot;
+            this.state.setCurrentBallot(ballot);
+        } else {
+            maxballot = this.state.getCurrentBallot();
+        }
 
-		DidaMeetingsPaxos.PhaseOneReply.Builder response_builder = DidaMeetingsPaxos.PhaseOneReply.newBuilder();
-		response_builder.setInstance(instance);
-		response_builder.setServerid(this.server_state.my_id);
-		response_builder.setRequestballot(ballot);
-		response_builder.setAccepted(accepted);
-		response_builder.setValue(value);
-		response_builder.setValballot(valballot);
-		response_builder.setMaxballot(maxballot);
+        PhaseTwoReply response = PhaseTwoReply.newBuilder()
+                .setInstance(instance)
+                .setServerid(this.state.getServerId())
+                .setAccepted(accepted)
+                .setRequestballot(ballot)
+                .setMaxballot(maxballot)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
 
-		DidaMeetingsPaxos.PhaseOneReply response = response_builder.build();
+        // Notify learners
+        if (accepted == true) {
+            this.executor.submit(() -> {
+                List<Integer> learners = this.state.getScheduler().learners(ballot);
+                LearnRequest learnRequest = LearnRequest.newBuilder()
+                        .setInstance(instance)
+                        .setBallot(ballot)
+                        .setValue(value)
+                        .build();
+                List<LearnReply> responses = new ArrayList<>();
+                GenericResponseCollector<LearnReply> collector = new GenericResponseCollector<>(responses,
+                        learners.size());
+                for (int learner : learners) {
+                    CollectorStreamObserver<LearnReply> observer = new CollectorStreamObserver<>(collector);
+                    this.state.getPaxosStub(learner).learn(learnRequest, observer);
+                }
+            });
+        }
+    }
 
-		// System.out.println("Sending phase1 response: " + response);
+    @Override
+    public void learn(LearnRequest request, StreamObserver<LearnReply> responseObserver) {
+        int instance = request.getInstance();
+        int ballot = request.getBallot();
+        int value = request.getValue();
 
-		responseObserver.onNext(response);
-		responseObserver.onCompleted();
-	}
+        synchronized (this) {
+            PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance);
+            this.state.setCurrentBallot(ballot);
+            if (ballot == entry.acceptBallot) {
+                entry.numAccepts++;
+                if (entry.numAccepts >= this.state.getScheduler().quorum(ballot)) {
+                    this.state.updateCompletedBallot(ballot);
+                    entry.decided = true;
+                    this.mainLoop.wakeup();
+                }
+            } else if (ballot > entry.acceptBallot) {
+                entry.commandId = value;
+                entry.acceptBallot = ballot;
+                entry.numAccepts = 1;
+            }
+        }
 
-	@Override
-	public void phasetwo(DidaMeetingsPaxos.PhaseTwoRequest request,
-			StreamObserver<DidaMeetingsPaxos.PhaseTwoReply> responseObserver) {
-		// System.out.println ("Receive phase two request: \n" + request);
-
-		// debug modes
-		this.server_state.waitIfFrozen();
-		this.server_state.randomDelay();
-
-		int instance = request.getInstance();
-		int ballot = request.getRequestballot();
-		int value = request.getValue();
-		PaxosInstance entry = this.server_state.paxos_log.testAndSetEntry(instance);
-		boolean accepted = false;
-		int maxballot = ballot;
-
-		if (ballot >= this.server_state.getCurrentBallot()) {
-			accepted = true;
-			entry.command_id = value;
-			entry.write_ballot = ballot;
-			this.server_state.setCurrentBallot(ballot);
-		} else
-			maxballot = this.server_state.getCurrentBallot();
-
-		DidaMeetingsPaxos.PhaseTwoReply.Builder response_builder = DidaMeetingsPaxos.PhaseTwoReply.newBuilder();
-		response_builder.setAccepted(accepted);
-		response_builder.setInstance(instance);
-		response_builder.setServerid(this.server_state.my_id);
-		response_builder.setRequestballot(ballot);
-		response_builder.setMaxballot(maxballot);
-
-		DidaMeetingsPaxos.PhaseTwoReply response = response_builder.build();
-
-		// System.out.println("Sending phase2 response: " + response);
-
-		responseObserver.onNext(response);
-		responseObserver.onCompleted();
-
-		// Notify learners
-		if (accepted == true) {
-
-			Context ctx = Context.current().fork();
-			ctx.run(() -> {
-				List<Integer> learners = this.server_state.scheduler.learners(ballot);
-				int n_targets = learners.size();
-
-				DidaMeetingsPaxos.LearnRequest.Builder learn_request_builder = DidaMeetingsPaxos.LearnRequest
-						.newBuilder();
-				learn_request_builder.setInstance(instance);
-				learn_request_builder.setValue(value);
-				learn_request_builder.setBallot(ballot);
-
-				DidaMeetingsPaxos.LearnRequest learn_request = learn_request_builder.build();
-
-				// System.out.println("Sending learn request: \n" + learn_request);
-
-				System.out.println("Paxos acceptor: going to notify learners for entry " + instance + " with timestamp "
-						+ ballot + " request = " + learn_request);
-				ArrayList<DidaMeetingsPaxos.LearnReply> learn_responses = new ArrayList<DidaMeetingsPaxos.LearnReply>();
-				GenericResponseCollector<DidaMeetingsPaxos.LearnReply> learn_collector = new GenericResponseCollector<DidaMeetingsPaxos.LearnReply>(
-						learn_responses, n_targets);
-				for (int i = 0; i < n_targets; i++) {
-					CollectorStreamObserver<DidaMeetingsPaxos.LearnReply> learn_observer = new CollectorStreamObserver<DidaMeetingsPaxos.LearnReply>(
-							learn_collector);
-					this.server_state.async_stubs[learners.get(i)].learn(learn_request, learn_observer);
-				}
-				// System.out.println("Learn request completed for instance = " + instance);
-			});
-		}
-
-	}
-
-	@Override
-	public void learn(DidaMeetingsPaxos.LearnRequest request,
-			StreamObserver<DidaMeetingsPaxos.LearnReply> responseObserver) {
-		// System.out.println("Receive learn request: \n" + request);
-
-		// debug modes
-		this.server_state.waitIfFrozen();
-		this.server_state.randomDelay();
-
-		int instance = request.getInstance();
-		int ballot = request.getBallot();
-		int value = request.getValue();
-
-		synchronized (this) {
-			PaxosInstance entry = this.server_state.paxos_log.testAndSetEntry(instance);
-
-			// System.out.println("Paxos learner: learnin entry " + instance + " with
-			// timestamp " + ballot);
-
-			this.server_state.setCurrentBallot(ballot);
-
-			if (ballot == entry.accept_ballot) {
-				entry.n_accepts++;
-				System.out
-						.println("Paxos learner for instance " + instance + " : number of accepts " + entry.n_accepts);
-				if (entry.n_accepts >= this.server_state.scheduler.quorum(ballot)) {
-					System.out.println("Paxos learner: waking up the main loop");
-					this.server_state.updateCompletedBallot(ballot);
-					entry.decided = true;
-					this.server_state.main_loop.wakeup();
-				}
-			} else if (ballot > entry.accept_ballot) {
-				System.out.println("Paxos learner for instance " + instance + " : resetting ");
-				entry.command_id = value;
-				entry.accept_ballot = ballot;
-				entry.n_accepts = 1;
-			}
-		}
-
-		DidaMeetingsPaxos.LearnReply.Builder response_builder = DidaMeetingsPaxos.LearnReply.newBuilder();
-		response_builder.setInstance(instance);
-		response_builder.setBallot(ballot);
-
-		DidaMeetingsPaxos.LearnReply response = response_builder.build();
-
-		// System.out.println("Sending learn response");
-
-		responseObserver.onNext(response);
-		responseObserver.onCompleted();
-	}
-
+        LearnReply response = LearnReply.newBuilder()
+                .setInstance(instance)
+                .setBallot(ballot)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 }

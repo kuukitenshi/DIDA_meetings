@@ -1,39 +1,32 @@
-
 package didameetings.server;
 
-import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.HashMap;
+import java.util.Map;
 
 public class RequestHistory {
-    private Hashtable<Integer, RequestRecord> pending;
-    private Hashtable<Integer, RequestRecord> processed;
 
-    public RequestHistory() {
-        this.pending = new Hashtable<Integer, RequestRecord>();
-        this.processed = new Hashtable<Integer, RequestRecord>();
-    }
+    private Map<Integer, RequestRecord> pending = new HashMap<>();
+    private Map<Integer, RequestRecord> processed = new HashMap<>();
 
-    public synchronized RequestRecord getIfPending(int requestid) {
-        return this.pending.get(requestid);
+    public synchronized RequestRecord getIfPending(int requestId) {
+        return this.pending.get(requestId);
     }
 
     public synchronized RequestRecord getFirstPending() {
-        Enumeration<Integer> pendingids = this.pending.keys();
-        if (pendingids.hasMoreElements())
-            return this.pending.get(pendingids.nextElement());
-        else
+        if (this.pending.isEmpty()) {
             return null;
+        }
+        return this.pending.values().iterator().next();
     }
 
-    public synchronized RequestRecord getIfProcessed(int requestid) {
-        return this.processed.get(requestid);
+    public synchronized RequestRecord getIfProcessed(int requestId) {
+        return this.processed.get(requestId);
     }
 
-    public synchronized RequestRecord getIfExists(int requestid) {
-        RequestRecord record;
-        record = this.pending.get(requestid);
+    public synchronized RequestRecord getIfExists(int requestId) {
+        RequestRecord record = this.pending.get(requestId);
         if (record == null)
-            record = this.processed.get(requestid);
+            record = this.processed.get(requestId);
         return record;
     }
 

@@ -1,55 +1,42 @@
 package didameetings.server;
 
+import java.util.Optional;
+
 public class RequestRecord {
-    private int requestid;
-    private DidaMeetingsCommand request;
-    private boolean response_available;
-    private boolean response_value;
+
+    private final int id;
+    private final DidaMeetingsCommand command;
+    private Optional<Boolean> response = Optional.empty();
 
     public RequestRecord(int id) {
-        this.requestid = id;
-        this.request = null;
-        this.response_available = false;
-        this.response_value = false;
+        this(id, null);
     }
 
-    public RequestRecord(int id, DidaMeetingsCommand rq) {
-        this.requestid = id;
-        this.request = rq;
-        this.response_available = false;
-        this.response_value = false;
-    }
-
-    // Getter and Setter methods for all fields
-    public DidaMeetingsCommand getRequest() {
-        return this.request;
+    public RequestRecord(int id, DidaMeetingsCommand command) {
+        this.id = id;
+        this.command = command;
     }
 
     public int getId() {
-        return this.requestid;
+        return this.id;
     }
 
-    public void setRequest(DidaMeetingsCommand rq) {
-        this.request = rq;
+    public DidaMeetingsCommand getCommand() {
+        return command;
     }
 
-    public boolean getResponseValue() {
-        return this.response_value;
-    }
-
-    public synchronized void setResponse(boolean resp) {
-        this.response_value = resp;
-        this.response_available = true;
+    public synchronized void setResponse(boolean response) {
+        this.response = Optional.of(response);
         this.notifyAll();
     }
 
     public synchronized boolean waitForResponse() {
-        while (this.response_available == false) {
+        while (this.response.isEmpty()) {
             try {
                 wait();
             } catch (InterruptedException e) {
             }
         }
-        return this.response_value;
+        return this.response.get();
     }
 }

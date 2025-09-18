@@ -1,106 +1,84 @@
 package didameetings.server;
 
-import java.util.*;
-
-import didameetings.core.*;
-import didameetings.configs.*;
-import didameetings.configs.ConfigurationScheduler;
-
-import didameetings.DidaMeetingsMain;
-import didameetings.DidaMeetingsPaxos;
 import didameetings.DidaMeetingsPaxosServiceGrpc;
-
+import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceStub;
+import didameetings.configs.ConfigurationScheduler;
+import didameetings.core.MeetingManager;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
 public class DidaMeetingsServerState {
-    int max_participants;
-    MeetingManager meeting_manager;
-    ConfigurationScheduler scheduler;
-    int base_port;
-    int my_id;
-    RequestHistory req_history;
-    PaxosLog paxos_log;
 
-    List<Integer> all_participants;
-    int n_participants;
-    String[] targets;
-    ManagedChannel[] channels;
-    DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceStub[] async_stubs;
+    private final PaxosLog paxosLog = new PaxosLog();
+    private final RequestHistory requestHistory = new RequestHistory();
+    private final MeetingManager meetingManager = new MeetingManager();
+    private final int serverId;
+    private final ConfigurationScheduler scheduler;
+    private final DidaMeetingsPaxosServiceStub[] paxosStubs;
 
-    private int current_ballot;
-    private int completed_ballot;
-    private int debug_mode;
-    private boolean isFrozen = false;
-    private boolean isSlowMode = false;
+    private int currentBallot = 0;
+    private int completedBallot = -1;
 
-    MainLoop main_loop;
-    Thread main_loop_worker;
-
-    public DidaMeetingsServerState(int port, int myself, char schedule, int max) {
-        this.max_participants = max;
-        this.meeting_manager = new MeetingManager();
-        this.scheduler = new ConfigurationScheduler(schedule);
-        this.base_port = port;
-        this.my_id = myself;
-        this.debug_mode = 0;
-        this.current_ballot = 0;
-        this.completed_ballot = -1;
-        this.req_history = new RequestHistory();
-        this.paxos_log = new PaxosLog();
-        this.main_loop = new MainLoop(this);
-
-        // init comms
-        this.all_participants = this.scheduler.allparticipants();
-        this.n_participants = all_participants.size();
-
-        this.targets = new String[this.n_participants];
-        for (int i = 0; i < this.n_participants; i++) {
-            int target_port = this.base_port + all_participants.get(i);
-            this.targets[i] = new String();
-            this.targets[i] = "localhost:" + target_port;
-            System.out.printf("targets[%d] = %s%n", i, targets[i]);
+    public DidaMeetingsServerState(CliArgs args) {
+        this.serverId = args.serverId();
+        this.scheduler = args.scheduler();
+        int nodeCount = this.scheduler.allparticipants().size();
+        this.paxosStubs = new DidaMeetingsPaxosServiceStub[nodeCount];
+        for (int i = 0; i < nodeCount; i++) {
+            int port = args.basePort() + i;
+            ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
+            this.paxosStubs[i] = DidaMeetingsPaxosServiceGrpc.newStub(channel);
         }
+    }
 
-        this.channels = new ManagedChannel[this.n_participants];
-        for (int i = 0; i < this.n_participants; i++)
-            this.channels[i] = ManagedChannelBuilder.forTarget(this.targets[i]).usePlaintext().build();
+    public PaxosLog getPaxosLog() {
+        return this.paxosLog;
+    }
 
-        this.async_stubs = new DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceStub[this.n_participants];
-        for (int i = 0; i < this.n_participants; i++)
-            this.async_stubs[i] = DidaMeetingsPaxosServiceGrpc.newStub(this.channels[i]);
+    public RequestHistory getRequestHistory() {
+        return this.requestHistory;
+    }
 
-        // start worker
-        this.main_loop_worker = new Thread(main_loop);
-        this.main_loop_worker.start();
+    public MeetingManager getMeetingManager() {
+        return meetingManager;
+    }
+
+    public int getServerId() {
+        return this.serverId;
+    }
+
+    public ConfigurationScheduler getScheduler() {
+        return this.scheduler;
+    }
+
+    public DidaMeetingsPaxosServiceStub getPaxosStub(int serverId) {
+        return this.paxosStubs[serverId];
+    }
+
+    public synchronized void setDebugMode(int mode) {
+        // TODO
     }
 
     public synchronized int getCurrentBallot() {
-        return this.current_ballot;
+        return this.currentBallot;
     }
 
     public synchronized void setCurrentBallot(int ballot) {
-        if (ballot > this.current_ballot)
-            this.current_ballot = ballot;
+        if (ballot > this.currentBallot) {
+            this.currentBallot = ballot;
+        }
     }
 
     public synchronized int getCompletedBallot() {
-        return this.completed_ballot;
+        return this.completedBallot;
     }
 
     public int findMaxDecidedBallot() {
         int ballot = -1;
-        int length = this.paxos_log.length();
-
-        for (int i = 0; i < length; i++) {
-            PaxosInstance entry = this.paxos_log.getEntry(i);
-            if (entry == null)
-                return ballot;
-            if (!entry.decided)
-                return ballot;
-            else if (entry.accept_ballot > ballot)
-                ballot = entry.accept_ballot;
-
+        for (PaxosInstance entry : this.paxosLog.entries()) {
+            if (entry.decided && entry.acceptBallot > ballot) {
+                ballot = entry.acceptBallot;
+            }
         }
         return ballot;
     }
@@ -111,80 +89,25 @@ public class DidaMeetingsServerState {
         // NEEDS TO BE UPDATE FOR THE PROJECT TODO:
 
         ballot = this.findMaxDecidedBallot();
-        if (ballot > this.completed_ballot)
-            this.completed_ballot = ballot;
+        if (ballot > this.completedBallot)
+            this.completedBallot = ballot;
         this.notifyAll();
     }
 
     public synchronized void setCompletedBallot(int ballot) {
-        if (ballot > this.completed_ballot)
-            this.completed_ballot = ballot;
+        if (ballot > this.completedBallot) {
+            this.completedBallot = ballot;
+        }
         this.notifyAll();
     }
 
     public synchronized int waitForCompletedBallot(int ballot) {
-        while (this.completed_ballot < ballot) {
+        while (this.completedBallot < ballot) {
             try {
                 wait();
             } catch (InterruptedException e) {
             }
         }
-        return this.completed_ballot;
+        return this.completedBallot;
     }
-
-    public synchronized int getDebugMode() {
-        return this.debug_mode;
-    }
-
-    public synchronized void setDebugMode(int mode) {
-        switch (mode) {
-            case 1: // crash
-                System.exit(-1);
-                break;
-            case 2: // freeze
-                this.isFrozen = true;
-                break;
-            case 3: // un-freeze
-                this.isFrozen = false;
-                break;
-            case 4: // slow-mode-on
-                this.isSlowMode = true;
-                break;
-            case 5: // slow-mode-off
-                this.isSlowMode = false;
-                break;
-            default:
-                break;
-        }
-    }
-
-    // ---------------------- freeze --------------------------------
-    public synchronized void waitIfFrozen() {
-        while (isFrozen) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-            }
-        }
-    }
-
-    public synchronized boolean isFrozen() {
-        return isFrozen;
-    }
-
-    // ---------------------- slow-mode ------------------------------
-    public void randomDelay() {
-        if (isSlowMode) {
-            try {
-                long delay = 100 + (long) (Math.random() * 900); // 100ms - 1000ms
-                Thread.sleep(delay);
-            } catch (InterruptedException e) {
-            }
-        }
-    }
-
-    public synchronized boolean isSlowMode() {
-        return isSlowMode;
-    }
-
 }
