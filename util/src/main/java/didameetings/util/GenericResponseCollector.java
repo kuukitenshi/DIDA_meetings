@@ -4,10 +4,10 @@ import java.util.List;
 
 public class GenericResponseCollector<T> {
 
+    private final GenericResponseProcessor<T> processor;
+    private final List<T> collectedResponses;
     private boolean done = false;
     private int received = 0;
-    private GenericResponseProcessor<T> processor = null;
-    private List<T> collectedResponses;
     private int pending;
 
     public GenericResponseCollector(List<T> responses, int maxResponses) {

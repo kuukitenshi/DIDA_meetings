@@ -4,8 +4,8 @@ import io.grpc.stub.StreamObserver;
 
 public class CollectorStreamObserver<T> implements StreamObserver<T> {
 
+    private final GenericResponseCollector<T> collector;
     private boolean done = false;
-    GenericResponseCollector<T> collector;
 
     public CollectorStreamObserver(GenericResponseCollector<T> c) {
         this.collector = c;

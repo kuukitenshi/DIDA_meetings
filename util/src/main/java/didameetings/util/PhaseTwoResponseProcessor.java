@@ -23,6 +23,7 @@ public class PhaseTwoResponseProcessor extends GenericResponseProcessor<PhaseTwo
         return this.maxballot;
     }
 
+    @Override
     public synchronized boolean onNext(List<PhaseTwoReply> allResponses, PhaseTwoReply lastResponse) {
         this.responses++;
         if (!lastResponse.getAccepted()) {
