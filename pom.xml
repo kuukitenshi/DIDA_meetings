@@ -8,10 +8,15 @@
 	<version>v1</version>
 	<packaging>pom</packaging>
 
-	<!-- Modules are subcomponents of the project. 
-		The reactor collects all the available modules to build;
-		sorts the projects into the correct build order;
-		builds the selected projects in order. -->
+    <properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<version.java>22</version.java>
+        <version.maven-compiler-plugin>3.8.1</version.maven-compiler-plugin>
+        <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
+		<version.exec-maven-plugin>3.0.0</version.exec-maven-plugin>
+    </properties>
+
 	<modules>
 		<module>core</module>
 		<module>configs</module>
@@ -21,5 +26,4 @@
 		<module>console</module>
 		<module>server</module>
 	</modules>
-
 </project>
