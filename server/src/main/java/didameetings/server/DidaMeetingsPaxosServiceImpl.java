@@ -12,9 +12,8 @@ import didameetings.DidaMeetingsPaxos.PhaseOneRequest;
 import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
 import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceImplBase;
-import didameetings.util.GenericResponseCollector;
 import didameetings.util.CollectorStreamObserver;
-
+import didameetings.util.GenericResponseCollector;
 import io.grpc.stub.StreamObserver;
 
 public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBase {
@@ -30,6 +29,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
 
     @Override
     public void phaseone(PhaseOneRequest request, StreamObserver<PhaseOneReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
 
@@ -59,6 +60,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
 
     @Override
     public void phasetwo(PhaseTwoRequest request, StreamObserver<PhaseTwoReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
         int value = request.getValue();
@@ -107,6 +110,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
 
     @Override
     public void learn(LearnRequest request, StreamObserver<LearnReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         int instance = request.getInstance();
         int ballot = request.getBallot();
         int value = request.getValue();

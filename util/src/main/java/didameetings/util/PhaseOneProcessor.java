@@ -36,18 +36,25 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
 
     @Override
     public synchronized boolean onNext(List<PhaseOneReply> allResponses, PhaseOneReply lastResponse) {
+        // this.responses++;
+        // if (!lastResponse.getAccepted()) {
+        //     this.accepted = false;
+        //     if (lastResponse.getMaxballot() > this.maxballot) {
+        //         this.maxballot = lastResponse.getMaxballot();
+        //     }
+        //     if (lastResponse.getValue() > this.value) {
+        //         this.value = lastResponse.getValue();
+        //         this.valballot = lastResponse.getValballot();
+        //     }
+        //     return true;
+        // }
+        // return this.responses >= this.quorum;
+
         this.responses++;
-        if (!lastResponse.getAccepted()) {
-            this.accepted = false;
-            if (lastResponse.getMaxballot() > this.maxballot) {
-                this.maxballot = lastResponse.getMaxballot();
-            }
-            if (lastResponse.getValue() > this.value) {
-                this.value = lastResponse.getValue();
-                this.valballot = lastResponse.getValballot();
-            }
-            return true;
-        }
-        return this.responses >= this.quorum;
+        this.maxballot = lastResponse.getMaxballot();
+        this.value = lastResponse.getValue();
+        this.valballot = lastResponse.getValballot();
+
+        return true;
     }
 }

@@ -47,6 +47,7 @@ public class MainLoop implements Runnable {
             int ballot = this.state.getCurrentBallot();
 
             if (ballot > -1 && request != null && scheduler.leader(ballot) == this.state.getServerId()) {
+                System.out.println("[MainLoop] Server " + this.state.getServerId() + " is leader for ballot " + ballot + ", processing instance " + instanceId);
                 boolean ballotAborted = false;
                 int phaseTwoValue = request.getId();
 

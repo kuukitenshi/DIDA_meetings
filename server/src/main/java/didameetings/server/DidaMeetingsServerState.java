@@ -19,6 +19,10 @@ public class DidaMeetingsServerState {
     private int currentBallot = 0;
     private int completedBallot = -1;
 
+    // Debug state
+    private boolean isFrozen = false;
+    private boolean isSlowMode = false;
+
     public DidaMeetingsServerState(CliArgs args) {
         this.serverId = args.serverId();
         this.scheduler = args.scheduler();
@@ -56,7 +60,54 @@ public class DidaMeetingsServerState {
     }
 
     public synchronized void setDebugMode(int mode) {
-        // TODO
+        System.out.println("[Debug] setDebugMode(" + mode + ")");
+        switch (mode) {
+            case 1: // crash
+                System.out.println("[Debug] Crashing server " + this.serverId);
+                System.exit(1);
+                break;
+            case 2: // freeze
+                System.out.println("[Debug] Freezing server " + this.serverId);
+                this.isFrozen = true;
+                break;
+            case 3: // un-freeze
+                System.out.println("[Debug] Un-freezing server " + this.serverId);
+                this.isFrozen = false;
+                this.notifyAll();
+                break;
+            case 4: // slow-mode-on
+                System.out.println("[Debug] Slow-mode ON for server " + this.serverId);
+                this.isSlowMode = true;
+                break;
+            case 5: // slow-mode-off
+                System.out.println("[Debug] Slow-mode OFF for server " + this.serverId);
+                this.isSlowMode = false;
+                break;
+            default:
+                System.out.println("[Debug] Unknown mode: " + mode);
+                break;
+        }
+    }
+
+    public synchronized void waitIfFrozen() {
+        while (this.isFrozen) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+            }
+        }
+    }
+
+    public void randomDelay() {
+        if (!this.isSlowMode) {
+            return;
+        }
+        try {
+            // 50ms to 200ms delay
+            long delay = 50 + (long) (Math.random() * 150);
+            Thread.sleep(delay);
+        } catch (InterruptedException e) {
+        }
     }
 
     public synchronized int getCurrentBallot() {

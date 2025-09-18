@@ -25,6 +25,8 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void open(OpenRequest request, StreamObserver<OpenReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         System.out.println("[Main] open " + request);
         int requestId = request.getReqid();
         int mid = request.getMeetingid();
@@ -40,6 +42,8 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void add(AddRequest request, StreamObserver<AddReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         System.out.println("[Main] add " + request);
         int requestId = request.getReqid();
         int mid = request.getMeetingid();
@@ -56,6 +60,8 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void topic(TopicRequest request, StreamObserver<TopicReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         System.out.println("[Main] topic " + request);
         int requestId = request.getReqid();
         int mid = request.getMeetingid();
@@ -73,6 +79,8 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void close(CloseRequest request, StreamObserver<CloseReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         System.out.println("[Main] close " + request);
         int requestId = request.getReqid();
         int meetingId = request.getMeetingid();
@@ -88,6 +96,8 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     @Override
     public void dump(DumpRequest request, StreamObserver<DumpReply> responseObserver) {
+        this.state.waitIfFrozen();
+        this.state.randomDelay();
         System.out.println("[Main] dump " + request);
         int requestId = request.getReqid();
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.DUMP);
