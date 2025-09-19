@@ -10,6 +10,7 @@ import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
 import didameetings.configs.ConfigurationScheduler;
 import didameetings.core.MeetingManager;
 import didameetings.util.CollectorStreamObserver;
+import didameetings.util.DebugPrinter;
 import didameetings.util.GenericResponseCollector;
 import didameetings.util.PhaseOneProcessor;
 import didameetings.util.PhaseTwoResponseProcessor;
@@ -43,43 +44,81 @@ public class MainLoop implements Runnable {
         PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(instanceId);
 
         while (!paxosInstance.decided) {
+            boolean retryImmediately = false;
             RequestRecord request = this.state.getRequestHistory().getFirstPending();
             int ballot = this.state.getCurrentBallot();
 
             if (ballot > -1 && request != null && scheduler.leader(ballot) == this.state.getServerId()) {
-                System.out.println("[MainLoop] Server " + this.state.getServerId() + " is leader for ballot " + ballot + ", processing instance " + instanceId);
+                DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Server " + this.state.getServerId() + " is leader for ballot " + ballot + ", processing instance " + instanceId);
+                DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Current ballot=" + this.state.getCurrentBallot() + ", completed ballot=" + this.state.getCompletedBallot());
                 boolean ballotAborted = false;
                 int phaseTwoValue = request.getId();
+                
+                // Check if this instance is already decided
+                if (paxosInstance.decided) {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Instance " + instanceId + " is already decided with value " + paxosInstance.commandId);
+                    break;
+                }
 
                 // Phase 1
+                DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Starting Phase 1 (Prepare) for instance " + instanceId + " with ballot " + ballot);
                 PhaseOneProcessor phaseOneProcessor = runPhaseOne(instanceId, ballot);
                 if (!phaseOneProcessor.getAccepted()) {
                     ballotAborted = true;
+                    retryImmediately = true;
                     int maxballot = phaseOneProcessor.getMaxballot();
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Phase 1 FAILED - ballot aborted due to higher ballot " + maxballot);
                     if (maxballot > this.state.getCurrentBallot()) {
                         this.state.setCurrentBallot(maxballot);
+                        DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Updated current ballot to " + maxballot);
                     }
-                } else if (phaseOneProcessor.getValballot() > -1) {
-                    phaseTwoValue = phaseOneProcessor.getValue();
+                } else {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Phase 1 SUCCESS - got " + phaseOneProcessor.getPromises() + " promises");
+                    if (phaseOneProcessor.getValballot() > -1) {
+                        phaseTwoValue = phaseOneProcessor.getValue();
+                        DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Using previously accepted value " + phaseTwoValue + " from valballot " + phaseOneProcessor.getValballot());
+                    } else {
+                        DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: No previously accepted value, using new value " + phaseTwoValue);
+                    }
                 }
 
                 // Phase 2
                 if (!ballotAborted) {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Starting Phase 2 (Accept) for instance " + instanceId + " with ballot " + ballot + " and value " + phaseTwoValue);
                     PhaseTwoResponseProcessor phaseTwoProcessor = runPhaseTwo(instanceId, ballot, phaseTwoValue);
                     if (!phaseTwoProcessor.getAccepted()) {
-                        ballotAborted = true;
+                        DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Phase 2 FAILED - ballot aborted due to higher ballot " + phaseTwoProcessor.getMaxballot());
+                        retryImmediately = true;
                         this.state.setCurrentBallot(phaseTwoProcessor.getMaxballot());
                     } else {
+                        DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Phase 2 SUCCESS - got " + phaseTwoProcessor.getAccepts() + " accepts");
                         this.state.setCompletedBallot(ballot);
                         paxosInstance.commandId = phaseTwoValue;
                         paxosInstance.decided = true;
-                        System.out.println("[MainLoop] Decided instance " + instanceId + " with reqid=" + phaseTwoValue);
+                        DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: DECIDED instance " + instanceId + " with value " + phaseTwoValue + " for ballot " + ballot);
                     }
+                } else {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Skipping Phase 2 due to ballot abort");
+                }
+            } else {
+                // Not the leader for this ballot or no ballot/request
+                if (ballot > -1 && request != null) {
+                    int currentLeader = scheduler.leader(ballot);
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Server " + this.state.getServerId() + " is NOT leader for ballot " + ballot + " (leader is " + currentLeader + ")");
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Giving up leadership - not leader for current ballot");
+                } else if (ballot == -1) {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: No ballot assigned yet, waiting for work");
+                } else if (request == null) {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: No pending requests, waiting for work");
                 }
             }
             if (!paxosInstance.decided) {
-                this.hasWork = false;
-                waitForWork();
+                if (!retryImmediately) {
+                    this.hasWork = false;
+                    waitForWork();
+                } else {
+                    DebugPrinter.debugPrint("[PAXOS-DEBUG] MainLoop: Retrying instance " + instanceId + " immediately after aborted ballot");
+                }
             }
         }
 

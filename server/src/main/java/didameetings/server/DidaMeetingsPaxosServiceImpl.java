@@ -13,6 +13,7 @@ import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
 import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceImplBase;
 import didameetings.util.CollectorStreamObserver;
+import didameetings.util.DebugPrinter;
 import didameetings.util.GenericResponseCollector;
 import io.grpc.stub.StreamObserver;
 
@@ -34,14 +35,24 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
 
+        DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " received Phase 1 Prepare for instance " + instance + " with ballot " + ballot);
+        
         PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance, ballot);
         boolean accepted = false;
         int value = entry.commandId;
         int valballot = entry.writeBallot;
+        
+        int currentBallot = this.state.getCurrentBallot();
+        DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " current ballot: " + currentBallot + ", requested ballot: " + ballot);
+        DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " entry readBallot: " + entry.readBallot + ", writeBallot: " + entry.writeBallot + ", commandId: " + entry.commandId);
+        
         if (ballot >= this.state.getCurrentBallot()) {
             accepted = true;
             this.state.setCurrentBallot(ballot);
             entry.readBallot = ballot;
+            DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " PROMISED to ignore ballots <= " + ballot + " (accepted=true)");
+        } else {
+            DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " REJECTED prepare - ballot " + ballot + " < current ballot " + currentBallot + " (accepted=false)");
         }
         int maxballot = this.state.getCurrentBallot();
 
@@ -65,17 +76,26 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
         int value = request.getValue();
+        
+        DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " received Phase 2 Accept for instance " + instance + " with ballot " + ballot + " and value " + value);
+        
         PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance);
         boolean accepted = false;
         int maxballot = ballot;
+
+        int currentBallot = this.state.getCurrentBallot();
+        DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " current ballot: " + currentBallot + ", requested ballot: " + ballot);
+        DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " entry readBallot: " + entry.readBallot + ", writeBallot: " + entry.writeBallot + ", commandId: " + entry.commandId);
 
         if (ballot >= this.state.getCurrentBallot()) {
             accepted = true;
             entry.commandId = value;
             entry.writeBallot = ballot;
             this.state.setCurrentBallot(ballot);
+            DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " ACCEPTED value " + value + " for ballot " + ballot + " (accepted=true)");
         } else {
             maxballot = this.state.getCurrentBallot();
+            DebugPrinter.debugPrint("[PAXOS-DEBUG] Server " + this.state.getServerId() + " REJECTED accept - ballot " + ballot + " < current ballot " + currentBallot + " (accepted=false)");
         }
 
         PhaseTwoReply response = PhaseTwoReply.newBuilder()
