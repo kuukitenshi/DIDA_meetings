@@ -10,13 +10,18 @@ import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
 import didameetings.configs.ConfigurationScheduler;
 import didameetings.core.MeetingManager;
 import didameetings.util.CollectorStreamObserver;
+import didameetings.util.FancyLogger;
 import didameetings.util.GenericResponseCollector;
+import didameetings.util.Logger;
 import didameetings.util.PhaseOneProcessor;
 import didameetings.util.PhaseTwoResponseProcessor;
 
 public class MainLoop implements Runnable {
 
+    private static final Logger LOGGER = new FancyLogger("MainLoop");
+
     private final DidaMeetingsServerState state;
+
     private boolean hasWork = false;
     private int nextLogEntry = -1;
 
@@ -26,7 +31,7 @@ public class MainLoop implements Runnable {
 
     @Override
     public void run() {
-        waitForWork();
+        // waitForWork();
         while (true) {
             this.nextLogEntry++;
             this.processEntry(this.nextLogEntry);
@@ -47,7 +52,8 @@ public class MainLoop implements Runnable {
             int ballot = this.state.getCurrentBallot();
 
             if (ballot > -1 && request != null && scheduler.leader(ballot) == this.state.getServerId()) {
-                System.out.println("[MainLoop] Server " + this.state.getServerId() + " is leader for ballot " + ballot + ", processing instance " + instanceId);
+                LOGGER.info("server {} is leader for ballot {}, processing instance {}", this.state.getServerId(),
+                        ballot, instanceId);
                 boolean ballotAborted = false;
                 int phaseTwoValue = request.getId();
 
@@ -73,7 +79,7 @@ public class MainLoop implements Runnable {
                         this.state.setCompletedBallot(ballot);
                         paxosInstance.commandId = phaseTwoValue;
                         paxosInstance.decided = true;
-                        System.out.println("[MainLoop] Decided instance " + instanceId + " with reqid=" + phaseTwoValue);
+                        LOGGER.info("decided instace {} with reqid {}", instanceId, phaseTwoValue);
                     }
                 }
             }
@@ -93,11 +99,11 @@ public class MainLoop implements Runnable {
         }
 
         boolean result = processRequest(request);
-        System.out.println("[MainLoop] Executed " + request.getCommand().action() +
-                "(mid=" + request.getCommand().meetingId() + ", pid=" + request.getCommand().participantId() +
-                ", topic=" + request.getCommand().topicId() + ") => result=" + result);
         request.setResponse(result);
         this.state.getRequestHistory().moveToProcessed(request.getId());
+        LOGGER.info("processed {} (mid={}, pid={}, topic={}) => result={}", request.getCommand().action(),
+                request.getCommand().meetingId(), request.getCommand().participantId(), request.getCommand().topicId(),
+                result);
     }
 
     private PhaseOneProcessor runPhaseOne(int instanceId, int ballot) {

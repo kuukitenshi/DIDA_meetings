@@ -13,10 +13,14 @@ import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
 import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceImplBase;
 import didameetings.util.CollectorStreamObserver;
+import didameetings.util.FancyLogger;
 import didameetings.util.GenericResponseCollector;
+import didameetings.util.Logger;
 import io.grpc.stub.StreamObserver;
 
 public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBase {
+
+    private static final Logger LOGGER = new FancyLogger("PaxosService");
 
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final DidaMeetingsServerState state;

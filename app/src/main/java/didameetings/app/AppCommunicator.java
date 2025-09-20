@@ -42,7 +42,7 @@ public class AppCommunicator {
         for (int i = 0; i < nodeCount; i++) {
             int port = args.port() + i;
             this.channels[i] = ManagedChannelBuilder.forAddress(args.host(),
-                    port).build();
+                    port).usePlaintext().build();
             this.stubs[i] = DidaMeetingsMainServiceGrpc.newStub(this.channels[i]);
         }
     }

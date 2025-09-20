@@ -30,7 +30,8 @@ public class DidaMeetingsServerState {
         this.paxosStubs = new DidaMeetingsPaxosServiceStub[nodeCount];
         for (int i = 0; i < nodeCount; i++) {
             int port = args.basePort() + i;
-            ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
+            String target = "localhost:" + port;
+            ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
             this.paxosStubs[i] = DidaMeetingsPaxosServiceGrpc.newStub(channel);
         }
     }

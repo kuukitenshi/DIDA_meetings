@@ -128,14 +128,14 @@ public class InteractiveHandler {
         }
         int pid;
         try {
-            pid = Integer.parseInt(args[0]);
+            pid = Integer.parseInt(args[1]);
         } catch (NumberFormatException e) {
             System.err.println("Participant id needs to be a number!");
             return;
         }
         int topic;
         try {
-            topic = Integer.parseInt(args[0]);
+            topic = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
             System.err.println("Topic needs to be a number!");
             return;
@@ -164,7 +164,7 @@ public class InteractiveHandler {
         }
         int pid;
         try {
-            pid = Integer.parseInt(args[0]);
+            pid = Integer.parseInt(args[1]);
         } catch (NumberFormatException e) {
             System.err.println("Participant id needs to be a number!");
             return;

@@ -12,8 +12,12 @@ import didameetings.DidaMeetingsMain.TopicReply;
 import didameetings.DidaMeetingsMain.TopicRequest;
 import didameetings.DidaMeetingsMainServiceGrpc.DidaMeetingsMainServiceImplBase;
 import io.grpc.stub.StreamObserver;
+import didameetings.util.FancyLogger;
+import didameetings.util.Logger;
 
 public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase {
+
+    private static final Logger LOGGER = new FancyLogger("MainService");
 
     private final DidaMeetingsServerState state;
     private final MainLoop mainLoop;
@@ -27,13 +31,13 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
     public void open(OpenRequest request, StreamObserver<OpenReply> responseObserver) {
         this.state.waitIfFrozen();
         this.state.randomDelay();
-        System.out.println("[Main] open " + request);
-        int requestId = request.getReqid();
+        int reqid = request.getReqid();
         int mid = request.getMeetingid();
+        LOGGER.debug("received open request (reqid: {}, mid: {})", reqid, mid);
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.OPEN, mid);
-        boolean result = processCommand(requestId, command);
+        boolean result = processCommand(reqid, command);
         OpenReply response = OpenReply.newBuilder()
-                .setReqid(requestId)
+                .setReqid(reqid)
                 .setResult(result)
                 .build();
         responseObserver.onNext(response);
@@ -44,14 +48,14 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
     public void add(AddRequest request, StreamObserver<AddReply> responseObserver) {
         this.state.waitIfFrozen();
         this.state.randomDelay();
-        System.out.println("[Main] add " + request);
-        int requestId = request.getReqid();
+        int reqid = request.getReqid();
         int mid = request.getMeetingid();
         int pid = request.getParticipantid();
+        LOGGER.debug("received add request (reqid: {}, mid: {}, pid: {})", reqid, mid, pid);
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.ADD, mid, pid);
-        boolean result = processCommand(requestId, command);
+        boolean result = processCommand(reqid, command);
         AddReply response = AddReply.newBuilder()
-                .setReqid(requestId)
+                .setReqid(reqid)
                 .setResult(result)
                 .build();
         responseObserver.onNext(response);
@@ -62,15 +66,15 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
     public void topic(TopicRequest request, StreamObserver<TopicReply> responseObserver) {
         this.state.waitIfFrozen();
         this.state.randomDelay();
-        System.out.println("[Main] topic " + request);
-        int requestId = request.getReqid();
+        int reqid = request.getReqid();
         int mid = request.getMeetingid();
         int pid = request.getParticipantid();
         int topic = request.getTopicid();
+        LOGGER.debug("received topic request (reqid: {}, mid: {}, pid: {}, topic: {})", reqid, mid, pid, topic);
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.TOPIC, mid, pid, topic);
-        boolean result = processCommand(requestId, command);
+        boolean result = processCommand(reqid, command);
         TopicReply response = TopicReply.newBuilder()
-                .setReqid(requestId)
+                .setReqid(reqid)
                 .setResult(result)
                 .build();
         responseObserver.onNext(response);
@@ -82,12 +86,13 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
         this.state.waitIfFrozen();
         this.state.randomDelay();
         System.out.println("[Main] close " + request);
-        int requestId = request.getReqid();
-        int meetingId = request.getMeetingid();
-        DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.CLOSE, meetingId);
-        boolean result = processCommand(requestId, command);
+        int reqid = request.getReqid();
+        int mid = request.getMeetingid();
+        LOGGER.debug("received close request (reqid: {}, mid: {})", reqid, mid);
+        DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.CLOSE, mid);
+        boolean result = processCommand(reqid, command);
         CloseReply response = CloseReply.newBuilder()
-                .setReqid(requestId)
+                .setReqid(reqid)
                 .setResult(result)
                 .build();
         responseObserver.onNext(response);
@@ -98,12 +103,12 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
     public void dump(DumpRequest request, StreamObserver<DumpReply> responseObserver) {
         this.state.waitIfFrozen();
         this.state.randomDelay();
-        System.out.println("[Main] dump " + request);
-        int requestId = request.getReqid();
+        int reqid = request.getReqid();
+        LOGGER.debug("received dump request (reqid: {})", reqid);
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.DUMP);
-        boolean result = processCommand(requestId, command);
+        boolean result = processCommand(reqid, command);
         DumpReply response = DumpReply.newBuilder()
-                .setReqid(requestId)
+                .setReqid(reqid)
                 .setResult(result)
                 .build();
         responseObserver.onNext(response);
