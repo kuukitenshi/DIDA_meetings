@@ -4,10 +4,16 @@ import didameetings.DidaMeetingsPaxosServiceGrpc;
 import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceStub;
 import didameetings.configs.ConfigurationScheduler;
 import didameetings.core.MeetingManager;
+import didameetings.util.FancyLogger;
+import didameetings.util.Logger;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
 public class DidaMeetingsServerState {
+
+    private static final Logger LOGGER = new FancyLogger("State");
+    private static final int MIN_SLOW_DELAY = 50;
+    private static final long MAX_SLOW_DELAY = 150;
 
     private final PaxosLog paxosLog = new PaxosLog();
     private final RequestHistory requestHistory = new RequestHistory();
@@ -61,31 +67,31 @@ public class DidaMeetingsServerState {
     }
 
     public synchronized void setDebugMode(int mode) {
-        System.out.println("[Debug] setDebugMode(" + mode + ")");
+        LOGGER.debug("activated debug mode ", mode);
         switch (mode) {
             case 1: // crash
-                System.out.println("[Debug] Crashing server " + this.serverId);
+                LOGGER.debug("crasing the server...");
                 System.exit(1);
                 break;
             case 2: // freeze
-                System.out.println("[Debug] Freezing server " + this.serverId);
+                LOGGER.debug("freeze ENABLED");
                 this.isFrozen = true;
                 break;
             case 3: // un-freeze
-                System.out.println("[Debug] Un-freezing server " + this.serverId);
+                LOGGER.debug("freeze DISABLED");
                 this.isFrozen = false;
-                this.notifyAll();
+                notifyAll();
                 break;
             case 4: // slow-mode-on
-                System.out.println("[Debug] Slow-mode ON for server " + this.serverId);
+                LOGGER.debug("slow mode ENABLED");
                 this.isSlowMode = true;
                 break;
             case 5: // slow-mode-off
-                System.out.println("[Debug] Slow-mode OFF for server " + this.serverId);
+                LOGGER.debug("slow mode DISABLED");
                 this.isSlowMode = false;
                 break;
             default:
-                System.out.println("[Debug] Unknown mode: " + mode);
+                LOGGER.warn("received unknown debug mode '{}'", mode);
                 break;
         }
     }
@@ -104,8 +110,7 @@ public class DidaMeetingsServerState {
             return;
         }
         try {
-            // 50ms to 200ms delay
-            long delay = 50 + (long) (Math.random() * 150);
+            long delay = MIN_SLOW_DELAY + (long) (Math.random() * MAX_SLOW_DELAY);
             Thread.sleep(delay);
         } catch (InterruptedException e) {
         }

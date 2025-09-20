@@ -38,15 +38,15 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
     public synchronized boolean onNext(List<PhaseOneReply> allResponses, PhaseOneReply lastResponse) {
         // this.responses++;
         // if (!lastResponse.getAccepted()) {
-        //     this.accepted = false;
-        //     if (lastResponse.getMaxballot() > this.maxballot) {
-        //         this.maxballot = lastResponse.getMaxballot();
-        //     }
-        //     if (lastResponse.getValue() > this.value) {
-        //         this.value = lastResponse.getValue();
-        //         this.valballot = lastResponse.getValballot();
-        //     }
-        //     return true;
+        // this.accepted = false;
+        // if (lastResponse.getMaxballot() > this.maxballot) {
+        // this.maxballot = lastResponse.getMaxballot();
+        // }
+        // return true;
+        // }
+        // if (lastResponse.getValballot() > this.valballot) {
+        // this.valballot = lastResponse.getValballot();
+        // this.value = lastResponse.getValue();
         // }
         // return this.responses >= this.quorum;
 
