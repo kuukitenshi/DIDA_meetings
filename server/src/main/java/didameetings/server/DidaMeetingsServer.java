@@ -6,6 +6,13 @@ import io.grpc.ServerBuilder;
 
 public class DidaMeetingsServer {
 
+    private static final String ASCII_ART = """
+            ▄ ▄▖▄ ▄▖  ▖  ▖▄▖▄▖▄▖▄▖▖ ▖▄▖▄▖  ▄▖▄▖▄▖▖▖▄▖▄▖
+            ▌▌▐ ▌▌▌▌  ▛▖▞▌▙▖▙▖▐ ▐ ▛▖▌▌ ▚   ▚ ▙▖▙▘▌▌▙▖▙▘
+            ▙▘▟▖▙▘▛▌  ▌▝ ▌▙▖▙▖▐ ▟▖▌▝▌▙▌▄▌  ▄▌▙▖▌▌▚▘▙▖▌▌
+
+            """;
+
     public static void main(String[] args) throws Exception {
         CliArgs cliArgs = CliArgs.parse(args);
         if (cliArgs == null) {
@@ -25,6 +32,7 @@ public class DidaMeetingsServer {
                 .addService(masterService)
                 .addService(paxosService).build();
         server.start();
+        System.out.println(ASCII_ART);
         System.out.println("Server started on port " + port);
         server.awaitTermination();
     }

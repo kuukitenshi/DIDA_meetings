@@ -37,6 +37,7 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         this.state.randomDelay();
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
+        LOGGER.debug("received phaseone request (instance={}, ballot={})", instance, ballot);
 
         PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance, ballot);
         boolean accepted = false;
@@ -48,6 +49,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
             entry.readBallot = ballot;
         }
         int maxballot = this.state.getCurrentBallot();
+        LOGGER.debug("phaseone results: instance={}, maxballot={}, accepted={}, val={}, valballot={}", instance,
+                maxballot, accepted, value, valballot);
 
         PhaseOneReply response = PhaseOneReply.newBuilder()
                 .setInstance(instance)
@@ -69,6 +72,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
         int value = request.getValue();
+        LOGGER.debug("received phasetwo request (instance={}, ballot={}, value={})", instance, ballot, value);
+
         PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance);
         boolean accepted = false;
         int maxballot = ballot;
@@ -81,6 +86,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         } else {
             maxballot = this.state.getCurrentBallot();
         }
+        LOGGER.debug("phasetwo reply: instance={}, maxballot={}, accepted={}, value={}, ballot={}", instance,
+                maxballot, accepted, value, ballot);
 
         PhaseTwoReply response = PhaseTwoReply.newBuilder()
                 .setInstance(instance)
@@ -108,7 +115,9 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
                     CollectorStreamObserver<LearnReply> observer = new CollectorStreamObserver<>(collector);
                     this.state.getPaxosStub(learner).learn(learnRequest, observer);
                 }
+                LOGGER.debug("all replies sent!");
             });
+            LOGGER.debug("sending reply to learners...");
         }
     }
 
@@ -119,21 +128,26 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         int instance = request.getInstance();
         int ballot = request.getBallot();
         int value = request.getValue();
+        LOGGER.debug("received learn request (instance={}, value={}, ballot={})", instance, ballot, value);
 
         synchronized (this) {
             PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance);
-            this.state.setCurrentBallot(ballot);
-            if (ballot == entry.acceptBallot) {
-                entry.numAccepts++;
-                if (entry.numAccepts >= this.state.getScheduler().quorum(ballot)) {
-                    this.state.updateCompletedBallot(ballot);
-                    entry.decided = true;
-                    this.mainLoop.wakeup();
+            if (!entry.decided) { // ignore if already decided
+                this.state.setCurrentBallot(ballot);
+                if (ballot == entry.acceptBallot) {
+                    entry.numAccepts++;
+                    if (entry.numAccepts >= this.state.getScheduler().quorum(ballot)) {
+                        LOGGER.debug("quorum reached for instance {} with {} accepts, deciding value {} in ballot {}",
+                                instance, entry.numAccepts, entry.commandId, entry.acceptBallot);
+                        this.state.updateCompletedBallot(ballot);
+                        entry.decided = true;
+                        this.mainLoop.wakeup();
+                    }
+                } else if (ballot > entry.acceptBallot) {
+                    entry.commandId = value;
+                    entry.acceptBallot = ballot;
+                    entry.numAccepts = 1;
                 }
-            } else if (ballot > entry.acceptBallot) {
-                entry.commandId = value;
-                entry.acceptBallot = ballot;
-                entry.numAccepts = 1;
             }
         }
 

@@ -6,10 +6,12 @@ import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 
 public class PhaseTwoResponseProcessor extends GenericResponseProcessor<PhaseTwoReply> {
 
+    private static final Logger LOGGER = new FancyLogger("PhaseTwoProcessor");
+
+    private final int quorum;
     private boolean accepted = true;
     private int maxballot = 0;
     private int responses = 0;
-    private int quorum;
 
     public PhaseTwoResponseProcessor(int q) {
         this.quorum = q;
@@ -26,6 +28,8 @@ public class PhaseTwoResponseProcessor extends GenericResponseProcessor<PhaseTwo
     @Override
     public synchronized boolean onNext(List<PhaseTwoReply> allResponses, PhaseTwoReply lastResponse) {
         this.responses++;
+        LOGGER.debug("received reply {}/{} (accepted={}, maxballot={})", this.responses, this.quorum,
+                lastResponse.getAccepted(), lastResponse.getMaxballot());
         if (!lastResponse.getAccepted()) {
             this.accepted = false;
             if (lastResponse.getMaxballot() > this.maxballot) {

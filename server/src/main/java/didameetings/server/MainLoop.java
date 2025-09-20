@@ -52,8 +52,8 @@ public class MainLoop implements Runnable {
             int ballot = this.state.getCurrentBallot();
 
             if (ballot > -1 && request != null && scheduler.leader(ballot) == this.state.getServerId()) {
-                LOGGER.info("server {} is leader for ballot {}, processing instance {}", this.state.getServerId(),
-                        ballot, instanceId);
+                LOGGER.info("server {} is leader for ballot {}, processing instance {}, trying value {}",
+                        this.state.getServerId(), ballot, instanceId, request.getId());
                 boolean ballotAborted = false;
                 int phaseTwoValue = request.getId();
 
@@ -68,6 +68,8 @@ public class MainLoop implements Runnable {
                 } else if (phaseOneProcessor.getValballot() > -1) {
                     phaseTwoValue = phaseOneProcessor.getValue();
                 }
+                LOGGER.info("phaseone results: aborted={} value={}, currballot={}", ballotAborted, phaseTwoValue,
+                        this.state.getCurrentBallot());
 
                 // Phase 2
                 if (!ballotAborted) {
@@ -79,7 +81,7 @@ public class MainLoop implements Runnable {
                         this.state.setCompletedBallot(ballot);
                         paxosInstance.commandId = phaseTwoValue;
                         paxosInstance.decided = true;
-                        LOGGER.info("decided instace {} with reqid {}", instanceId, phaseTwoValue);
+                        LOGGER.info("DECIDED instace {} with reqid {}", instanceId, phaseTwoValue);
                     }
                 }
             }
@@ -101,7 +103,20 @@ public class MainLoop implements Runnable {
         boolean result = processRequest(request);
         request.setResponse(result);
         this.state.getRequestHistory().moveToProcessed(request.getId());
-        LOGGER.info("processed {} (mid={}, pid={}, topic={}) => result={}", request.getCommand().action(),
+
+        StringBuilder sb = new StringBuilder("processed {0} (");
+        DidaMeetingsCommand command = request.getCommand();
+        if (command.meetingId() != -1) {
+            sb.append("mid={1}");
+            if (command.participantId() != -1) {
+                sb.append(", pid={2}");
+            }
+            if (command.topicId() != -1) {
+                sb.append(", topic={3}");
+            }
+        }
+        sb.append(") => result={4}");
+        LOGGER.info(sb.toString(), request.getCommand().action(),
                 request.getCommand().meetingId(), request.getCommand().participantId(), request.getCommand().topicId(),
                 result);
     }
