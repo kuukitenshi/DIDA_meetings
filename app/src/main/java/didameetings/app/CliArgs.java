@@ -8,7 +8,7 @@ public record CliArgs(int clientId, String host, int port, ConfigurationSchedule
 
     public static CliArgs parse(String[] args) {
         if (args.length < 4) {
-            System.err.println("Invalid number of arguments.\nUsage: <id> <host> <post> <scheduler> [OPTIONS]");
+            System.err.println("Invalid number of arguments.\nUsage: <id> <host> <port> <scheduler> [OPTIONS]");
             return null;
         }
         int clientId = 0;
@@ -40,6 +40,9 @@ public record CliArgs(int clientId, String host, int port, ConfigurationSchedule
         if (args.length >= 4) {
             String[] optionalArgs = Arrays.copyOfRange(args, 4, args.length);
             options = AppOptions.parse(optionalArgs);
+            if (options == null) {
+                return null;
+            }
         }
         return new CliArgs(clientId, host, port, scheduler, options);
     }

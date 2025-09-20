@@ -5,10 +5,11 @@ import java.util.List;
 
 public class AppOptions {
 
+    private static final String LINE_SEPARATOR = System.lineSeparator();
     private static final List<String> VALID_ARGUMENTS = Arrays.asList(
             "--help", "-h",
-            "--interactive", "-i",
-            "--mragne",
+            "--no-interactive",
+            "--mrange",
             "--prange",
             "--trange",
             "--length",
@@ -35,8 +36,8 @@ public class AppOptions {
             }
             if (option.equals("--help") || option.equals("-h")) {
                 options.showHelp = true;
-            } else if (option.equals("--interactive") || option.equals("-i")) {
-                options.interactiveMode = true;
+            } else if (option.equals("--no-interactive")) {
+                options.interactiveMode = false;
             } else if (i == args.length - 1) {
                 System.err.println("No value supplied for argument " + option);
                 return null;
@@ -44,9 +45,8 @@ public class AppOptions {
                 int value = 0;
                 try {
                     value = Integer.parseInt(args[i + 1]);
-                    System.out.printf("Value for argument %s needs to be a number!%n", option);
                 } catch (NumberFormatException e) {
-                    System.err.println();
+                    System.out.printf("Value for argument %s needs to be a number!%n", option);
                     return null;
                 }
                 switch (option) {
@@ -75,5 +75,17 @@ public class AppOptions {
         copy.interactiveMode = this.interactiveMode;
         copy.showHelp = this.showHelp;
         return copy;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("AppOptions {").append(LINE_SEPARATOR);
+        sb.append("\tmrange = ").append(this.meetingRange).append(LINE_SEPARATOR);
+        sb.append("\tprange = ").append(this.participantRange).append(LINE_SEPARATOR);
+        sb.append("\ttrange = ").append(this.topicRange).append(LINE_SEPARATOR);
+        sb.append("\tloop = ").append(this.loopLength).append(LINE_SEPARATOR);
+        sb.append("\tsleep = ").append(this.sleepRange).append(LINE_SEPARATOR);
+        sb.append("\tinteractive = ").append(this.interactiveMode).append(LINE_SEPARATOR);
+        return sb.append("}").toString();
     }
 }

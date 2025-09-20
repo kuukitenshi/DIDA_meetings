@@ -42,10 +42,7 @@ public class InteractiveHandler {
                     case "mrange" -> mrangeCommand(commandArgs);
                     case "prange" -> prangeCommand(commandArgs);
                     case "time" -> timeCommand(commandArgs);
-                    case "loop" -> {
-                        shouldQuit = true;
-                        new LoopHandler(this.communicator, this.options).run();
-                    }
+                    case "loop" -> new LoopHandler(this.communicator, this.options).run();
                     case "exit" -> shouldQuit = true;
                     default -> System.err.println("Invalid command, type help for the list of commands.");
                 }
