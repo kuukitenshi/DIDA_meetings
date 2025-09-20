@@ -62,10 +62,10 @@ public class InteractiveHandler {
                 "> topic <meeting id> <participant id> <topic> - assigns a topic to a participant in a meetings.");
         System.out.println("> add <mid> <pid> - adds a participant to a meeting.");
         System.out.println("> show - displays information in the replicas.");
-        System.out.println("> length <length> - ...");
-        System.out.println("> mrange <> - ...");
-        System.out.println("> prange <> - ...");
-        System.out.println("> time <> - ...");
+        System.out.println("> length <length> - sets the number of iterations for loop mode.");
+        System.out.println("> mrange <range> - sets the range for meeting IDs used in loop mode.");
+        System.out.println("> prange <range> - sets the range for participant IDs used in loop mode.");
+        System.out.println("> time <range> - sets the sleep time range (in seconds) between operations in loop mode.");
         System.out.println("> loop - stops interactive mode and goes to loop.");
         System.out.println("> exit - quits the app.\n");
     }
