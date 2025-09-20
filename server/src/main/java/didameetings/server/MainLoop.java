@@ -68,8 +68,6 @@ public class MainLoop implements Runnable {
                 PhaseOneProcessor phaseOneProcessor;
                 if (proposedValues.size() > 1) {
                     phaseOneProcessor = runPhaseOneMultiPaxos(instanceId, ballot, proposedValues);
-                } else {
-                    phaseOneProcessor = runPhaseOne(instanceId, ballot);
                 }
                 if (!phaseOneProcessor.getAccepted()) {
                     ballotAborted = true;
@@ -90,8 +88,6 @@ public class MainLoop implements Runnable {
                         PhaseTwoResponseProcessor phaseTwoProcessor;
                         if (proposedValues.size() > 1) {
                             phaseTwoProcessor = runPhaseTwoMultiPaxos(instanceId, ballot, proposedValues);
-                        } else {
-                            phaseTwoProcessor = runPhaseTwo(instanceId, ballot, proposedValues.get(0));
                         }
                         LOGGER.info("phasetwo results: aborted={} maxballot={}", !phaseTwoProcessor.getAccepted(),
                                 phaseTwoProcessor.getMaxballot());
@@ -148,54 +144,6 @@ public class MainLoop implements Runnable {
         LOGGER.info(sb.toString(), request.getCommand().action(),
                 request.getCommand().meetingId(), request.getCommand().participantId(), request.getCommand().topicId(),
                 result);
-    }
-
-    // FIXME: apagar provavelemente
-    private PhaseOneProcessor runPhaseOne(int instanceId, int ballot) {
-        List<Integer> acceptors = this.state.getScheduler().acceptors(ballot);
-        int numAcceptors = acceptors.size();
-        int quorum = this.state.getScheduler().quorum(ballot);
-        PhaseOneRequest phaseOneRequest = PhaseOneRequest.newBuilder()
-                .setInstance(instanceId)
-                .setRequestballot(ballot)
-                .build();
-
-        PhaseOneProcessor phaseOneProcessor = new PhaseOneProcessor(quorum);
-        List<PhaseOneReply> phaseOneResponses = new ArrayList<>();
-        GenericResponseCollector<PhaseOneReply> phaseOneCollector = new GenericResponseCollector<>(
-                phaseOneResponses, numAcceptors, phaseOneProcessor);
-        for (int i = 0; i < numAcceptors; i++) {
-            int acceptorId = acceptors.get(i);
-            CollectorStreamObserver<PhaseOneReply> observer = new CollectorStreamObserver<>(phaseOneCollector);
-            this.state.getPaxosStub(acceptorId).phaseone(phaseOneRequest, observer);
-        }
-        phaseOneCollector.waitUntilDone();
-        return phaseOneProcessor;
-    }
-
-    // FIXME: apagar provavelemente
-    private PhaseTwoResponseProcessor runPhaseTwo(int instanceId, int ballot, int value) {
-        List<Integer> acceptors = this.state.getScheduler().acceptors(ballot);
-        int numAcceptors = acceptors.size();
-        int quorum = this.state.getScheduler().quorum(ballot);
-        PhaseTwoRequest request = PhaseTwoRequest.newBuilder()
-                .setInstance(instanceId)
-                .setRequestballot(ballot)
-                .setValue(value)
-                .build();
-
-        PhaseTwoResponseProcessor processor = new PhaseTwoResponseProcessor(quorum);
-        List<PhaseTwoReply> responses = new ArrayList<>();
-        GenericResponseCollector<PhaseTwoReply> collector = new GenericResponseCollector<>(
-                responses, numAcceptors, processor);
-        for (int i = 0; i < numAcceptors; i++) {
-            int acceptorId = acceptors.get(i);
-            CollectorStreamObserver<PhaseTwoReply> observer = new CollectorStreamObserver<>(
-                    collector);
-            this.state.getPaxosStub(acceptorId).phasetwo(request, observer);
-        }
-        collector.waitUntilDone();
-        return processor;
     }
 
     private boolean processRequest(RequestRecord request) {
