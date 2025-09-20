@@ -28,6 +28,8 @@ public class DidaMeetingsServerState {
     // Debug state
     private boolean isFrozen = false;
     private boolean isSlowMode = false;
+    private int debugInstanceId = -1;
+    private int debugValue = -1;
 
     public DidaMeetingsServerState(CliArgs args) {
         this.serverId = args.serverId();
@@ -67,7 +69,11 @@ public class DidaMeetingsServerState {
     }
 
     public synchronized void setDebugMode(int mode) {
-        LOGGER.debug("activated debug mode ", mode);
+        setDebugMode(mode, -1, -1);
+    }
+
+    public synchronized void setDebugMode(int mode, int instance, int value) {
+        LOGGER.debug("activated debug mode {} with instance={} value={}", mode, instance, value);
         switch (mode) {
             case 1: // crash
                 LOGGER.debug("crasing the server...");
@@ -89,6 +95,17 @@ public class DidaMeetingsServerState {
             case 5: // slow-mode-off
                 LOGGER.debug("slow mode DISABLED");
                 this.isSlowMode = false;
+                break;
+            case 6: // set instance value
+                int useInstance = (instance >= 0) ? instance : debugInstanceId;
+                int useValue = (value >= 0) ? value : debugValue;
+                
+                if (useInstance >= 0 && useValue >= 0) {
+                    boolean success = setInstanceValue(useInstance, useValue);
+                    LOGGER.debug("debug mode 6: set instance {} value to {} - success: {}", useInstance, useValue, success);
+                } else {
+                    LOGGER.warn("debug mode 6: invalid parameters. instance: {}, value: {}", useInstance, useValue);
+                }
                 break;
             default:
                 LOGGER.warn("received unknown debug mode '{}'", mode);
@@ -166,5 +183,23 @@ public class DidaMeetingsServerState {
             }
         }
         return this.completedBallot;
+    }
+
+    public synchronized boolean setInstanceValue(int instanceId, int value) {
+        try {
+            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
+            instance.commandId = value;
+            LOGGER.debug("Debug: Set instance {} value to {}", instanceId, value);
+            return true;
+        } catch (Exception e) {
+            LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
+            return false;
+        }
+    }
+
+    public synchronized void setDebugInstanceParams(int instanceId, int value) {
+        this.debugInstanceId = instanceId;
+        this.debugValue = value;
+        LOGGER.debug("Debug parameters set: instanceId={}, value={}", instanceId, value);
     }
 }

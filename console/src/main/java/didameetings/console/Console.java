@@ -86,17 +86,19 @@ public class Console {
     private void helpCommand() {
         System.out.println("+----------[ HELP ]----------+");
         System.out.println("> help - display help menu.");
-        System.out.println(
-                "> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
+        System.out.println("> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
         System.out.println("> debug <mode> <replica> - sets the given replica in the specified debug mode.");
+        System.out.println("  Debug modes: 1=crash, 2=freeze, 3=unfreeze, 4=slow on, 5=slow off, 6=set instance value");
+        System.out.println("  For mode 6: debug 6 <replica> <instance> <value>");
         System.out.println("> exit - quits the console.\n");
     }
 
     private void debugCommand(String[] args) {
-        if (args.length != 2) {
-            System.err.println("Invalid number of arguments!");
+        if (args.length < 2) {
+            System.err.println("Invalid number of arguments! Use: debug <mode> <replica> [instance value for mode 6]");
             return;
         }
+        
         int mode = 0;
         try {
             mode = Integer.parseInt(args[0]);
@@ -104,12 +106,42 @@ public class Console {
             System.err.println("Debug mode needs to be a number!");
             return;
         }
+        
         int replica = 0;
         try {
             replica = Integer.parseInt(args[1]);
         } catch (NumberFormatException e) {
             System.err.println("Replica needs to be a number!");
             return;
+        }
+        
+        if (mode == 6) {
+            if (args.length != 4) {
+                System.err.println("Mode 6 requires: debug 6 <replica> <instance> <value>");
+                return;
+            }
+            
+            int instance = 0;
+            try {
+                instance = Integer.parseInt(args[2]);
+            } catch (NumberFormatException e) {
+                System.err.println("Instance needs to be a number!");
+                return;
+            }
+            
+            int value = 0;
+            try {
+                value = Integer.parseInt(args[3]);
+            } catch (NumberFormatException e) {
+                System.err.println("Value needs to be a number!");
+                return;
+            }
+            setDebugParams(replica, instance, value);
+        } else {
+            if (args.length != 2) {
+                System.err.println("Invalid number of arguments! Use: debug <mode> <replica>");
+                return;
+            }
         }
 
         int reqid = nextRequestId();
@@ -130,7 +162,36 @@ public class Console {
         if (reply.getAck()) {
             System.out.println("Debug mode has been set!");
         } else {
-            System.out.println("DEbug mode has been denied!");
+            System.out.println("Debug mode has been denied!");
+        }
+    }
+
+    private void setDebugParams(int replica, int instance, int value) {
+        System.out.println("Setting instance " + instance + " to value " + value + " in replica " + replica);
+        
+        // Simply call debug mode 6
+        int reqid = nextRequestId();
+        SetDebugRequest request = SetDebugRequest.newBuilder()
+                .setReqid(reqid)
+                .setMode(6)
+                .build();
+        
+        List<SetDebugReply> responses = new ArrayList<>();
+        GenericResponseCollector<SetDebugReply> collector = new GenericResponseCollector<>(responses, 1);
+        CollectorStreamObserver<SetDebugReply> observer = new CollectorStreamObserver<>(collector);
+        this.stubs[replica].setdebug(request, observer);
+        collector.waitForQuorum(1);
+        
+        if (responses.isEmpty()) {
+            System.err.println("No reply received for the given replica :(");
+            return;
+        }
+        
+        SetDebugReply reply = responses.getFirst();
+        if (reply.getAck()) {
+            System.out.println("Successfully set instance " + instance + " to value " + value);
+        } else {
+            System.out.println("Debug mode has been denied!");
         }
     }
 
