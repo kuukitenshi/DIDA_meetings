@@ -58,13 +58,16 @@ public class MainLoop implements Runnable {
                 boolean ballotAborted = false;
                 int phaseTwoValue = request.getId();
 
-                int previousLeader = this.state.getCompletedBallot() > -1 ? scheduler.leader(this.state.getCompletedBallot()) : -1;
+                int previousLeader = this.state.getCompletedBallot() > -1
+                        ? scheduler.leader(this.state.getCompletedBallot())
+                        : -1;
                 boolean shouldRunPhaseOne = (previousLeader == -1) || (previousLeader != currentLeader);
 
                 // Phase 1
                 if (shouldRunPhaseOne) {
                     LOGGER.info("executing Phase 1 (leader change or first time)");
                     PhaseOneProcessor phaseOneProcessor = runPhaseOne(instanceId, ballot);
+
                     if (!phaseOneProcessor.getAccepted()) {
                         ballotAborted = true;
                         int maxballot = phaseOneProcessor.getMaxballot();
@@ -94,9 +97,11 @@ public class MainLoop implements Runnable {
                         paxosInstance.commandId = phaseTwoValue;
                         paxosInstance.decided = true;
                         if (shouldRunPhaseOne) {
-                            LOGGER.info("DECIDED instance {} with reqid {} (Multi-Paxos: Phase 1 + Phase 2)", instanceId, phaseTwoValue);
+                            LOGGER.info("DECIDED instance {} with reqid {} (Multi-Paxos: Phase 1 + Phase 2)",
+                                    instanceId, phaseTwoValue);
                         } else {
-                            LOGGER.info("DECIDED instance {} with reqid {} (Multi-Paxos: Phase 2 only)", instanceId, phaseTwoValue);
+                            LOGGER.info("DECIDED instance {} with reqid {} (Multi-Paxos: Phase 2 only)", instanceId,
+                                    phaseTwoValue);
                         }
                     }
                 }
@@ -188,7 +193,7 @@ public class MainLoop implements Runnable {
         MeetingManager meetingManager = this.state.getMeetingManager();
         DidaMeetingsAction action = command.action();
         return switch (action) {
-            case OPEN -> meetingManager.open(command.meetingId(), 10);
+            case OPEN -> meetingManager.open(command.meetingId(), this.state.getMaxParticipants());
             case ADD -> meetingManager.addAndClose(command.meetingId(), command.participantId());
             case TOPIC -> meetingManager.setTopic(command.meetingId(), command.participantId(), command.topicId());
             case CLOSE -> meetingManager.close(command.meetingId());
