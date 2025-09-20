@@ -31,7 +31,7 @@ public class MainLoop implements Runnable {
 
     @Override
     public void run() {
-        // waitForWork();
+        waitForWork();
         while (true) {
             this.nextLogEntry++;
             this.processEntry(this.nextLogEntry);
@@ -74,6 +74,8 @@ public class MainLoop implements Runnable {
                 // Phase 2
                 if (!ballotAborted) {
                     PhaseTwoResponseProcessor phaseTwoProcessor = runPhaseTwo(instanceId, ballot, phaseTwoValue);
+                    LOGGER.info("phasetwo results: aborted={} maxballot={}", !phaseTwoProcessor.getAccepted(),
+                            phaseTwoProcessor.getMaxballot());
                     if (!phaseTwoProcessor.getAccepted()) {
                         ballotAborted = true;
                         this.state.setCurrentBallot(phaseTwoProcessor.getMaxballot());

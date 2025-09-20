@@ -53,13 +53,12 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceImpl
         int reqid = request.getReqid();
         int mode = request.getMode();
         LOGGER.debug("received setdebug request (reqid: {}, mode: {})", reqid, mode);
-
-        this.state.setDebugMode(request.getMode());
         SetDebugReply response = SetDebugReply.newBuilder()
                 .setReqid(request.getReqid())
                 .setAck(true)
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+        this.state.setDebugMode(request.getMode());
     }
 }

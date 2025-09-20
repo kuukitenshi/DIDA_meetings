@@ -175,7 +175,7 @@ public class Console {
             NewBallotReply reply = responses.getFirst();
             int completed = reply.getCompletedballot();
             this.completedBallot.set(completed);
-            System.out.println("New completed ballot: " + completed);
+            // System.out.println("New completed ballot: " + completed);
         });
     }
 

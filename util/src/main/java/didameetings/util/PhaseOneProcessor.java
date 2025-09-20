@@ -6,6 +6,8 @@ import didameetings.DidaMeetingsPaxos.PhaseOneReply;
 
 public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
 
+    private static final Logger LOGGER = new FancyLogger("PhaseOneProcessor");
+
     private final int quorum;
 
     private boolean accepted = true;
@@ -36,25 +38,30 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
 
     @Override
     public synchronized boolean onNext(List<PhaseOneReply> allResponses, PhaseOneReply lastResponse) {
-        // this.responses++;
-        // if (!lastResponse.getAccepted()) {
-        // this.accepted = false;
-        // if (lastResponse.getMaxballot() > this.maxballot) {
-        // this.maxballot = lastResponse.getMaxballot();
-        // }
-        // return true;
-        // }
-        // if (lastResponse.getValballot() > this.valballot) {
-        // this.valballot = lastResponse.getValballot();
-        // this.value = lastResponse.getValue();
-        // }
-        // return this.responses >= this.quorum;
-
         this.responses++;
-        this.maxballot = lastResponse.getMaxballot();
-        this.value = lastResponse.getValue();
-        this.valballot = lastResponse.getValballot();
+        LOGGER.debug("received reply {}/{} (accepted={}, maxballot={}, val={}, valballot={})", this.responses,
+                this.quorum,
+                lastResponse.getAccepted(), lastResponse.getMaxballot(), lastResponse.getValue(),
+                lastResponse.getValballot());
+        if (!lastResponse.getAccepted()) {
+            this.accepted = false;
+            if (lastResponse.getMaxballot() > this.maxballot) {
+                this.maxballot = lastResponse.getMaxballot();
+            }
+            return true;
+        }
+        if (lastResponse.getValballot() > this.valballot) {
+            this.valballot = lastResponse.getValballot();
+            this.value = lastResponse.getValue();
+            LOGGER.warn("reply had a value already written, overriding current value!");
+        }
+        return this.responses >= this.quorum;
 
-        return true;
+        // BOGUS
+        // this.responses++;
+        // this.maxballot = lastResponse.getMaxballot();
+        // this.value = lastResponse.getValue();
+        // this.valballot = lastResponse.getValballot();
+        // return true;
     }
 }
