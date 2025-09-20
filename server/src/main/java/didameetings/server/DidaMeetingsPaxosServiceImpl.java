@@ -37,11 +37,17 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         this.state.randomDelay();
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
-        LOGGER.debug("received phaseone request (instance={}, ballot={})", instance, ballot);
+        
+        // Multi-Paxos: ler lista de valores propostos
+        List<Integer> proposedValues = request.getValuesList();
+        LOGGER.debug("received phaseone request (instance={}, ballot={}, proposedValues={})", 
+            instance, ballot, proposedValues);
 
         PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance, ballot);
         boolean accepted = false;
-        int value = entry.commandId;
+        
+        // Para compatibilidade, usar o primeiro valor ou o existente
+        int value = entry.getCommandId();  // usar método atualizado
         int valballot = entry.writeBallot;
         if (ballot >= this.state.getCurrentBallot()) {
             accepted = true;
@@ -52,15 +58,29 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         LOGGER.debug("phaseone results: instance={}, maxballot={}, accepted={}, val={}, valballot={}", instance,
                 maxballot, accepted, value, valballot);
 
-        PhaseOneReply response = PhaseOneReply.newBuilder()
+        // Multi-Paxos: preparar resposta com listas
+        PhaseOneReply.Builder responseBuilder = PhaseOneReply.newBuilder()
                 .setInstance(instance)
                 .setServerid(this.state.getServerId())
                 .setRequestballot(ballot)
                 .setAccepted(accepted)
-                .setValue(value)
-                .setValballot(valballot)
-                .setMaxballot(maxballot)
-                .build();
+                .setMaxballot(maxballot);
+        
+        // Adicionar valores aceitos (para Multi-Paxos)
+        if (value != -1) {
+            responseBuilder.addValues(value);
+            responseBuilder.addValballots(valballot);
+        }
+        
+        // Adicionar outros valores da instância se existirem
+        for (Integer cmdId : entry.commandIds) {
+            if (cmdId != value && cmdId != -1) {
+                responseBuilder.addValues(cmdId);
+                responseBuilder.addValballots(entry.writeBallot);
+            }
+        }
+        
+        PhaseOneReply response = responseBuilder.build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
