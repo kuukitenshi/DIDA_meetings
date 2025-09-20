@@ -4,6 +4,8 @@ import didameetings.DidaMeetingsMaster.NewBallotReply;
 import didameetings.DidaMeetingsMaster.NewBallotRequest;
 import didameetings.DidaMeetingsMaster.SetDebugReply;
 import didameetings.DidaMeetingsMaster.SetDebugRequest;
+import didameetings.DidaMeetingsMaster.WriteValueReply;
+import didameetings.DidaMeetingsMaster.WriteValueRequest;
 import didameetings.DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceImplBase;
 import didameetings.util.FancyLogger;
 import didameetings.util.Logger;
@@ -60,5 +62,24 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceImpl
         responseObserver.onNext(response);
         responseObserver.onCompleted();
         this.state.setDebugMode(request.getMode());
+    }
+
+    @Override
+    public void writevalue(WriteValueRequest request, StreamObserver<WriteValueReply> responseObserver) {
+        int reqid = request.getReqid();
+        int replica = request.getReplica();
+        int instance = request.getInstance();
+        int value = request.getValue();
+        LOGGER.debug("received writevalue request (reqid: {}, replica: {}, instance: {}, value: {})", 
+                reqid, replica, instance, value);
+        
+        boolean success = this.state.setInstanceValue(replica, instance, value);
+        
+        WriteValueReply response = WriteValueReply.newBuilder()
+                .setReqid(reqid)
+                .setAck(success)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 }

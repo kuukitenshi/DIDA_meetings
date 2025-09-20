@@ -25,8 +25,21 @@ message SetDebugReply {
   bool ack      = 2;
 }
 
+message WriteValueRequest {
+  int32 reqid    = 1;
+  int32 replica  = 2;
+  int32 instance = 3;
+  int32 value    = 4;
+}
+
+message WriteValueReply {
+  int32 reqid = 1;
+  bool ack    = 2;
+}
+
 service DidaMeetingsMasterService {
   rpc newballot (NewBallotRequest) returns (NewBallotReply);
   rpc setdebug (SetDebugRequest) returns (SetDebugReply);
+  rpc writevalue (WriteValueRequest) returns (WriteValueReply);
 }
 

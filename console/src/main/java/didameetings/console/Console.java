@@ -13,6 +13,8 @@ import didameetings.DidaMeetingsMaster.NewBallotReply;
 import didameetings.DidaMeetingsMaster.NewBallotRequest;
 import didameetings.DidaMeetingsMaster.SetDebugReply;
 import didameetings.DidaMeetingsMaster.SetDebugRequest;
+import didameetings.DidaMeetingsMaster.WriteValueReply;
+import didameetings.DidaMeetingsMaster.WriteValueRequest;
 import didameetings.DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceStub;
 
 import didameetings.util.*;
@@ -65,6 +67,9 @@ public class Console {
                     case "ballot":
                         ballotCommand(commandArgs);
                         break;
+                    case "writevalue":
+                        writeValueCommand(commandArgs);
+                        break;
                     case "exit":
                         shouldQuit = true;
                         break;
@@ -88,8 +93,8 @@ public class Console {
         System.out.println("> help - display help menu.");
         System.out.println("> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
         System.out.println("> debug <mode> <replica> - sets the given replica in the specified debug mode.");
-        System.out.println("  Debug modes: 1=crash, 2=freeze, 3=unfreeze, 4=slow on, 5=slow off, 6=set instance value");
-        System.out.println("  For mode 6: debug 6 <replica> <instance> <value>");
+        System.out.println("  Debug modes: 1=crash, 2=freeze, 3=unfreeze, 4=slow on, 5=slow off");
+        System.out.println("> writevalue <replica> <instance> <value> - writes a value in specific instance of replica");
         System.out.println("> exit - quits the console.\n");
     }
 
@@ -243,6 +248,55 @@ public class Console {
     private int nextRequestId() {
         this.sequenceNumber++;
         return this.sequenceNumber * 100;
+    }
+
+    private void writeValueCommand(String[] args) {
+        if (args.length != 3) {
+            System.out.println("Usage: writevalue <replica> <instance> <value>");
+            return;
+        }
+
+        try {
+            int replica = Integer.parseInt(args[0]);
+            int instance = Integer.parseInt(args[1]);
+            int value = Integer.parseInt(args[2]);
+
+            if (replica < 0 || replica >= this.stubs.length) {
+                System.out.println("Invalid replica id: " + replica);
+                return;
+            }
+
+            int reqId = nextRequestId();
+            WriteValueRequest request = WriteValueRequest.newBuilder()
+                    .setReqid(reqId)
+                    .setReplica(replica)
+                    .setInstance(instance)
+                    .setValue(value)
+                    .build();
+
+            List<WriteValueReply> responses = new ArrayList<>();
+            GenericResponseCollector<WriteValueReply> collector = new GenericResponseCollector<>(responses, 1);
+            CollectorStreamObserver<WriteValueReply> observer = new CollectorStreamObserver<>(collector);
+            this.stubs[replica].writevalue(request, observer);
+
+            collector.waitUntilDone();
+
+            if (responses.isEmpty()) {
+                System.out.println("No response received for writevalue");
+                return;
+            }
+
+            WriteValueReply reply = responses.getFirst();
+            if (reply.getAck()) {
+                System.out.println("Successfully wrote value '" + value + "' in instance " + instance + " of replica " + replica);
+            } else {
+                System.out.println("Failed to write value in instance " + instance + " of replica " + replica);
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid number format. Usage: writevalue <replica> <instance> <value>");
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
     }
 
     public static void main(String[] args) throws Exception {

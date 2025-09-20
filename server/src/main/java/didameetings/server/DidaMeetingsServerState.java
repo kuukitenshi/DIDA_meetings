@@ -28,8 +28,6 @@ public class DidaMeetingsServerState {
     // Debug state
     private boolean isFrozen = false;
     private boolean isSlowMode = false;
-    private int debugInstanceId = -1;
-    private int debugValue = -1;
 
     public DidaMeetingsServerState(CliArgs args) {
         this.serverId = args.serverId();
@@ -95,17 +93,6 @@ public class DidaMeetingsServerState {
             case 5: // slow-mode-off
                 LOGGER.debug("slow mode DISABLED");
                 this.isSlowMode = false;
-                break;
-            case 6: // set instance value
-                int useInstance = (instance >= 0) ? instance : debugInstanceId;
-                int useValue = (value >= 0) ? value : debugValue;
-                
-                if (useInstance >= 0 && useValue >= 0) {
-                    boolean success = setInstanceValue(useInstance, useValue);
-                    LOGGER.debug("debug mode 6: set instance {} value to {} - success: {}", useInstance, useValue, success);
-                } else {
-                    LOGGER.warn("debug mode 6: invalid parameters. instance: {}, value: {}", useInstance, useValue);
-                }
                 break;
             default:
                 LOGGER.warn("received unknown debug mode '{}'", mode);
@@ -197,9 +184,36 @@ public class DidaMeetingsServerState {
         }
     }
 
-    public synchronized void setDebugInstanceParams(int instanceId, int value) {
-        this.debugInstanceId = instanceId;
-        this.debugValue = value;
-        LOGGER.debug("Debug parameters set: instanceId={}, value={}", instanceId, value);
+    public synchronized boolean setInstanceValue(int replica, int instanceId, String value) {
+        try {
+            // Convert string value to int (assuming it represents a commandId)
+            int intValue = Integer.parseInt(value);
+            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
+            instance.commandId = intValue;
+            instance.writeTimestamp = java.time.Instant.now(); // Record write timestamp
+            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} at {}", 
+                    replica, instanceId, value, instance.writeTimestamp);
+            return true;
+        } catch (NumberFormatException e) {
+            LOGGER.warn("Failed to parse value '{}' as integer for instance {}", value, instanceId);
+            return false;
+        } catch (Exception e) {
+            LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
+            return false;
+        }
+    }
+
+    public synchronized boolean setInstanceValue(int replica, int instanceId, int value) {
+        try {
+            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
+            instance.commandId = value;
+            instance.writeTimestamp = java.time.Instant.now(); // Record write timestamp
+            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} at {}", 
+                    replica, instanceId, value, instance.writeTimestamp);
+            return true;
+        } catch (Exception e) {
+            LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
+            return false;
+        }
     }
 }
