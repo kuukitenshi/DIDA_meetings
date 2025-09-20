@@ -59,7 +59,7 @@ public class MainLoop implements Runnable {
                 int phaseTwoValue = request.getId();
 
                 int previousLeader = this.state.getCompletedBallot() > -1 ? scheduler.leader(this.state.getCompletedBallot()) : -1;
-                boolean shouldRunPhaseOne = paxosInstance.shouldRunPhaseTwo(ballot, currentLeader, previousLeader);
+                boolean shouldRunPhaseOne = (previousLeader == -1) || (previousLeader != currentLeader);
 
                 // Phase 1
                 if (shouldRunPhaseOne) {
@@ -90,9 +90,6 @@ public class MainLoop implements Runnable {
                         ballotAborted = true;
                         this.state.setCurrentBallot(phaseTwoProcessor.getMaxballot());
                     } else {
-                        if (shouldRunPhaseOne) {
-                            paxosInstance.markPhaseTwoExecuted();
-                        }
                         this.state.setCompletedBallot(ballot);
                         paxosInstance.commandId = phaseTwoValue;
                         paxosInstance.decided = true;
