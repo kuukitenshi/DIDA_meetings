@@ -12,8 +12,8 @@ import io.grpc.ManagedChannelBuilder;
 public class DidaMeetingsServerState {
 
     private static final Logger LOGGER = new FancyLogger("State");
-    private static final int MIN_SLOW_DELAY = 50;
-    private static final long MAX_SLOW_DELAY = 150;
+    private static final int MIN_SLOW_DELAY = 2000;
+    private static final long MAX_SLOW_DELAY = 10000;
 
     private final PaxosLog paxosLog = new PaxosLog();
     private final RequestHistory requestHistory = new RequestHistory();

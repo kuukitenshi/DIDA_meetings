@@ -115,9 +115,7 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
                     CollectorStreamObserver<LearnReply> observer = new CollectorStreamObserver<>(collector);
                     this.state.getPaxosStub(learner).learn(learnRequest, observer);
                 }
-                LOGGER.debug("all replies sent!");
             });
-            LOGGER.debug("sending reply to learners...");
         }
     }
 
