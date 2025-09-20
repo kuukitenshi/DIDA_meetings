@@ -65,10 +65,7 @@ public class MainLoop implements Runnable {
                 boolean shouldRunPhaseTwo = paxosInstance.shouldRunPhaseTwo(ballot, currentLeader, previousLeader);
 
                 // PHASE 1
-                PhaseOneProcessor phaseOneProcessor;
-                if (proposedValues.size() > 1) {
-                    phaseOneProcessor = runPhaseOneMultiPaxos(instanceId, ballot, proposedValues);
-                }
+                PhaseOneProcessor phaseOneProcessor = runPhaseOneMultiPaxos(instanceId, ballot, proposedValues);
                 if (!phaseOneProcessor.getAccepted()) {
                     ballotAborted = true;
                     int maxballot = phaseOneProcessor.getMaxballot();
@@ -85,12 +82,8 @@ public class MainLoop implements Runnable {
                 if (!ballotAborted) {
                     if (shouldRunPhaseTwo) {
                         LOGGER.info("executing Phase 2 (leader change or first time)");
-                        PhaseTwoResponseProcessor phaseTwoProcessor;
-                        if (proposedValues.size() > 1) {
-                            phaseTwoProcessor = runPhaseTwoMultiPaxos(instanceId, ballot, proposedValues);
-                        }
-                        LOGGER.info("phasetwo results: aborted={} maxballot={}", !phaseTwoProcessor.getAccepted(),
-                                phaseTwoProcessor.getMaxballot());
+                        PhaseTwoResponseProcessor phaseTwoProcessor= runPhaseTwoMultiPaxos(instanceId, ballot, proposedValues);
+                        LOGGER.info("phasetwo results: aborted={} maxballot={}", !phaseTwoProcessor.getAccepted(), phaseTwoProcessor.getMaxballot());
                         
                         if (!phaseTwoProcessor.getAccepted()) {
                             ballotAborted = true;
