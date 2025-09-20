@@ -5,30 +5,32 @@ import java.util.List;
 
 public class ScheduleA implements Schedule {
 
-    private List<Integer> procs = Arrays.asList(0, 1, 2);
+    private final List<Integer> allParticipants = Arrays.asList(0, 1, 2);
+    private final List<Integer> allLearners = allParticipants;
+    private final List<Integer> allAcceptors = allParticipants;
 
     public List<Integer> learners(int ballot) {
-        return this.procs;
+        return this.allLearners;
     }
 
     public List<Integer> acceptors(int ballot) {
-        return this.procs;
+        return this.allAcceptors;
     }
 
     public boolean isacceptor(int node, int ballot) {
-        return this.procs.contains(node);
+        return this.allAcceptors.contains(node);
     }
 
     public List<Integer> acceptorsinrange(int low_ballot, int high_ballot) {
-        return this.procs;
+        return this.allAcceptors;
     }
 
     public List<Integer> allparticipantsinballot(int ballot) {
-        return this.procs;
+        return this.allParticipants;
     }
 
     public List<Integer> allparticipants() {
-        return this.procs;
+        return this.allParticipants;
     }
 
     public int leader(int ballot) {

@@ -5,47 +5,46 @@ import java.util.Arrays;
 
 public class ScheduleB implements Schedule {
 
-    private List<Integer> procs = Arrays.asList(0, 1, 2, 3, 4, 5);
-    private List<Integer> startingAcceptors = Arrays.asList(0, 1, 2);
-    private List<Integer> endingAcceptors = Arrays.asList(1, 2, 3, 4, 5);
-
-    public ScheduleB() {
-    }
+    private final List<Integer> allParticipants = Arrays.asList(0, 1, 2, 3, 4, 5);
+    private final List<Integer> allLearners = allParticipants;
+    private final List<Integer> acceptorsStart = Arrays.asList(0, 1, 2);
+    private final List<Integer> acceptorsEnd = Arrays.asList(1, 2, 3, 4, 5);
+    private final List<Integer> acceptorsAll = allParticipants;
 
     public List<Integer> learners(int ballot) {
-        return this.procs;
+        return this.allLearners;
     }
 
     public List<Integer> acceptors(int ballot) {
         if (ballot < 2) {
-            return this.startingAcceptors;
+            return this.acceptorsStart;
         }
-        return this.endingAcceptors;
+        return this.acceptorsEnd;
     }
 
     public List<Integer> acceptorsinrange(int low_ballot, int high_ballot) {
         if (high_ballot < 2) {
-            return this.startingAcceptors;
+            return this.acceptorsStart;
         }
         if (low_ballot >= 2) {
-            return this.endingAcceptors;
+            return this.acceptorsEnd;
         }
-        return this.procs;
+        return this.acceptorsAll;
     }
 
     public List<Integer> allparticipantsinballot(int ballot) {
-        return this.procs;
+        return this.allParticipants;
     }
 
     public List<Integer> allparticipants() {
-        return this.procs;
+        return this.allParticipants;
     }
 
     public boolean isacceptor(int node, int ballot) {
         if (ballot < 2) {
-            return this.startingAcceptors.contains(node);
+            return this.acceptorsStart.contains(node);
         }
-        return this.endingAcceptors.contains(node);
+        return this.acceptorsEnd.contains(node);
     }
 
     public int leader(int ballot) {
@@ -59,9 +58,6 @@ public class ScheduleB implements Schedule {
     }
 
     public int quorum(int ballot) {
-        if (ballot < 2) {
-            return 2;
-        }
-        return 3;
+        return ballot < 2 ? 2 : 3;
     }
 }
