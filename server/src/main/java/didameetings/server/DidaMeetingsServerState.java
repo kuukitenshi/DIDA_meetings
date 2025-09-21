@@ -172,48 +172,6 @@ public class DidaMeetingsServerState {
         return this.completedBallot;
     }
 
-    public synchronized boolean setInstanceValue(int instanceId, int value) {
-        try {
-            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
-            instance.commandId = value;
-            LOGGER.debug("Debug: Set instance {} value to {}", instanceId, value);
-            return true;
-        } catch (Exception e) {
-            LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
-            return false;
-        }
-    }
-
-    public synchronized boolean setInstanceValue(int replica, int instanceId, String value) {
-        try {
-            int intValue = Integer.parseInt(value);
-            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
-            instance.commandId = intValue;
-            instance.writeTimestamp = java.time.Instant.now();
-            LOGGER.debug("WriteValue: Set replica {} instance {} value to {}", replica, instanceId, value);
-            return true;
-        } catch (NumberFormatException e) {
-            LOGGER.warn("Failed to parse value '{}' as integer for instance {}", value, instanceId);
-            return false;
-        } catch (Exception e) {
-            LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
-            return false;
-        }
-    }
-
-    public synchronized boolean setInstanceValue(int replica, int instanceId, int value) {
-        try {
-            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
-            instance.commandId = value;
-            instance.writeTimestamp = java.time.Instant.now(); 
-            LOGGER.debug("WriteValue: Set replica {} instance {} value to {}", replica, instanceId, value);
-            return true;
-        } catch (Exception e) {
-            LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
-            return false;
-        }
-    }
-
     public synchronized boolean setInstanceValue(int replica, int instanceId, int value, int ballot) {
         try {
             PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
