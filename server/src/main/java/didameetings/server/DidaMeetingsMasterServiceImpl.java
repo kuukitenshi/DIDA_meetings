@@ -70,10 +70,11 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceImpl
         int replica = request.getReplica();
         int instance = request.getInstance();
         int value = request.getValue();
-        LOGGER.debug("received writevalue request (reqid: {}, replica: {}, instance: {}, value: {})", 
-                reqid, replica, instance, value);
+        int ballot = request.getBallot();
+        LOGGER.debug("received writevalue request (reqid: {}, replica: {}, instance: {}, value: {}, ballot: {})", 
+                reqid, replica, instance, value, ballot);
         
-        boolean success = this.state.setInstanceValue(replica, instance, value);
+        boolean success = this.state.setInstanceValue(replica, instance, value, ballot);
         
         WriteValueReply response = WriteValueReply.newBuilder()
                 .setReqid(reqid)

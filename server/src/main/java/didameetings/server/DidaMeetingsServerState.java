@@ -186,13 +186,11 @@ public class DidaMeetingsServerState {
 
     public synchronized boolean setInstanceValue(int replica, int instanceId, String value) {
         try {
-            // Convert string value to int (assuming it represents a commandId)
             int intValue = Integer.parseInt(value);
             PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
             instance.commandId = intValue;
-            instance.writeTimestamp = java.time.Instant.now(); // Record write timestamp
-            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} at {}", 
-                    replica, instanceId, value, instance.writeTimestamp);
+            instance.writeTimestamp = java.time.Instant.now();
+            LOGGER.debug("WriteValue: Set replica {} instance {} value to {}", replica, instanceId, value);
             return true;
         } catch (NumberFormatException e) {
             LOGGER.warn("Failed to parse value '{}' as integer for instance {}", value, instanceId);
@@ -207,12 +205,26 @@ public class DidaMeetingsServerState {
         try {
             PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
             instance.commandId = value;
-            instance.writeTimestamp = java.time.Instant.now(); // Record write timestamp
-            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} at {}", 
-                    replica, instanceId, value, instance.writeTimestamp);
+            instance.writeTimestamp = java.time.Instant.now(); 
+            LOGGER.debug("WriteValue: Set replica {} instance {} value to {}", replica, instanceId, value);
             return true;
         } catch (Exception e) {
             LOGGER.warn("Failed to set instance {} value to {}: {}", instanceId, value, e.getMessage());
+            return false;
+        }
+    }
+
+    public synchronized boolean setInstanceValue(int replica, int instanceId, int value, int ballot) {
+        try {
+            PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
+            instance.commandId = value;
+            instance.writeBallot = ballot;
+            instance.writeTimestamp = java.time.Instant.now();
+            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} with ballot {}", 
+                    replica, instanceId, value, ballot);
+            return true;
+        } catch (Exception e) {
+            LOGGER.warn("Failed to set instance {} value to {} with ballot {}: {}", instanceId, value, ballot, e.getMessage());
             return false;
         }
     }

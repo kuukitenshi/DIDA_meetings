@@ -94,7 +94,7 @@ public class Console {
         System.out.println("> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
         System.out.println("> debug <mode> <replica> - sets the given replica in the specified debug mode.");
         System.out.println("  Debug modes: 1=crash, 2=freeze, 3=unfreeze, 4=slow on, 5=slow off");
-        System.out.println("> writevalue <replica> <instance> <value> - writes a value in specific instance of replica");
+        System.out.println("> writevalue <replica> <instance> <value> <ballot> - writes a value in specific instance of replica");
         System.out.println("> exit - quits the console.\n");
     }
 
@@ -251,8 +251,8 @@ public class Console {
     }
 
     private void writeValueCommand(String[] args) {
-        if (args.length != 3) {
-            System.out.println("Usage: writevalue <replica> <instance> <value>");
+        if (args.length != 4) {
+            System.out.println("Usage: writevalue <replica> <instance> <value> <ballot>");
             return;
         }
 
@@ -260,6 +260,7 @@ public class Console {
             int replica = Integer.parseInt(args[0]);
             int instance = Integer.parseInt(args[1]);
             int value = Integer.parseInt(args[2]);
+            int ballot = Integer.parseInt(args[3]);
 
             if (replica < 0 || replica >= this.stubs.length) {
                 System.out.println("Invalid replica id: " + replica);
@@ -272,6 +273,7 @@ public class Console {
                     .setReplica(replica)
                     .setInstance(instance)
                     .setValue(value)
+                    .setBallot(ballot)
                     .build();
 
             List<WriteValueReply> responses = new ArrayList<>();
@@ -288,12 +290,12 @@ public class Console {
 
             WriteValueReply reply = responses.getFirst();
             if (reply.getAck()) {
-                System.out.println("Successfully wrote value '" + value + "' in instance " + instance + " of replica " + replica);
+                System.out.println("Successfully wrote value '" + value + "' with ballot '" + ballot + "' in instance " + instance + " of replica " + replica);
             } else {
                 System.out.println("Failed to write value in instance " + instance + " of replica " + replica);
             }
         } catch (NumberFormatException e) {
-            System.out.println("Invalid number format. Usage: writevalue <replica> <instance> <value>");
+            System.out.println("Invalid number format. Usage: writevalue <replica> <instance> <value> <ballot>");
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
         }
