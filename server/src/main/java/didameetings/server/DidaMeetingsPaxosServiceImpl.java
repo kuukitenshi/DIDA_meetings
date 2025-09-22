@@ -11,6 +11,7 @@ import didameetings.DidaMeetingsPaxos.PhaseOneReply;
 import didameetings.DidaMeetingsPaxos.PhaseOneRequest;
 import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
+import didameetings.DidaMeetingsPaxos.WrittenValue;
 import didameetings.DidaMeetingsPaxosServiceGrpc.DidaMeetingsPaxosServiceImplBase;
 import didameetings.util.CollectorStreamObserver;
 import didameetings.util.FancyLogger;
@@ -37,49 +38,40 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         this.state.randomDelay();
         int instance = request.getInstance();
         int ballot = request.getRequestballot();
-        
-        // Multi-Paxos: ler lista de valores propostos
-        List<Integer> proposedValues = request.getValuesList();
-        LOGGER.debug("received phaseone request (instance={}, ballot={}, proposedValues={})", 
-            instance, ballot, proposedValues);
+
+        LOGGER.debug("received phaseone request (instance={}, ballot={})", instance, ballot);
 
         PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance, ballot);
-        boolean accepted = false;
-        
-        // Para compatibilidade, usar o primeiro valor ou o existente
-        int value = entry.getCommandId();  // usar método atualizado
+        int value = entry.commandId;
         int valballot = entry.writeBallot;
-        if (ballot >= this.state.getCurrentBallot()) {
-            accepted = true;
-            this.state.setCurrentBallot(ballot);
-            entry.readBallot = ballot;
+        boolean accepted = false;
+
+        int maxballot;
+        synchronized (this) {
+            if (ballot >= this.state.getCurrentBallot()) {
+                accepted = true;
+                this.state.setCurrentBallot(ballot);
+                entry.readBallot = ballot;
+            }
+            maxballot = this.state.getCurrentBallot();
         }
-        int maxballot = this.state.getCurrentBallot();
         LOGGER.debug("phaseone results: instance={}, maxballot={}, accepted={}, val={}, valballot={}", instance,
                 maxballot, accepted, value, valballot);
 
-        // Multi-Paxos: preparar resposta com listas
         PhaseOneReply.Builder responseBuilder = PhaseOneReply.newBuilder()
                 .setInstance(instance)
                 .setServerid(this.state.getServerId())
                 .setRequestballot(ballot)
                 .setAccepted(accepted)
                 .setMaxballot(maxballot);
-        
-        // Adicionar valores aceitos (para Multi-Paxos)
-        if (value != -1) {
-            responseBuilder.addValues(value);
-            responseBuilder.addValballots(valballot);
-        }
-        
-        // Adicionar outros valores da instância se existirem
-        for (Integer cmdId : entry.commandIds) {
-            if (cmdId != value && cmdId != -1) {
-                responseBuilder.addValues(cmdId);
-                responseBuilder.addValballots(entry.writeBallot);
-            }
-        }
-        
+
+        this.state.getPaxosLog().entries().stream()
+                .filter(e -> e.instanceId > instance)
+                .filter(e -> e.commandId != -1)
+                .map(e -> WrittenValue.newBuilder().setInstance(instance).setValue(e.commandId)
+                        .setBallot(e.writeBallot))
+                .forEach(responseBuilder::addValues);
+
         PhaseOneReply response = responseBuilder.build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -98,16 +90,18 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
         boolean accepted = false;
         int maxballot = ballot;
 
-        if (ballot >= this.state.getCurrentBallot()) {
-            accepted = true;
-            entry.commandId = value;
-            entry.writeBallot = ballot;
-            this.state.setCurrentBallot(ballot);
-        } else {
-            maxballot = this.state.getCurrentBallot();
+        synchronized (this) {
+            if (ballot >= this.state.getCurrentBallot()) {
+                accepted = true;
+                entry.commandId = value;
+                entry.writeBallot = ballot;
+                this.state.setCurrentBallot(ballot);
+            } else {
+                maxballot = this.state.getCurrentBallot();
+            }
         }
-        LOGGER.debug("phasetwo reply: instance={}, maxballot={}, accepted={}, value={}, ballot={}", instance,
-                maxballot, accepted, value, ballot);
+        LOGGER.debug("phasetwo reply: instance={}, maxballot={}, accepted={}, value={}, ballot={}", instance, maxballot,
+                accepted, value, ballot);
 
         PhaseTwoReply response = PhaseTwoReply.newBuilder()
                 .setInstance(instance)

@@ -7,7 +7,12 @@ package didameetings;
 message PhaseOneRequest {
   int32 instance        = 1;
   int32 requestballot	= 2;
-  repeated int32 values = 3; // list of proposed values (multi-paxos)
+}
+
+message WrittenValue {
+  int32 instance = 1;
+  int32 value = 2;
+  int32 ballot = 3;
 }
 
 message PhaseOneReply {
@@ -15,9 +20,8 @@ message PhaseOneReply {
   int32 serverid        = 2;
   int32 requestballot	= 3;
   bool  accepted 	= 4;
-  repeated int32 values           = 5; // list of accepted values (multi-paxos)
-  repeated int32 valballots       = 6; // list of corresponding accepted ballots (multi-paxos)
-  int32 maxballot       = 7;
+  int32 maxballot       = 5;
+  repeated WrittenValue values = 6;
 }
 
 message PhaseTwoRequest {

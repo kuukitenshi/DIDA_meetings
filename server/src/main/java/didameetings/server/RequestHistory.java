@@ -39,5 +39,4 @@ public class RequestHistory {
         this.processed.put(requestid, record);
         return record;
     }
-
 }

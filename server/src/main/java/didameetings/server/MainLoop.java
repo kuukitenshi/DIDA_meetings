@@ -74,9 +74,11 @@ public class MainLoop implements Runnable {
                         if (maxballot > this.state.getCurrentBallot()) {
                             this.state.setCurrentBallot(maxballot);
                         }
-                    } else if (phaseOneProcessor.getValballot() > -1) {
-                        phaseTwoValue = phaseOneProcessor.getValue();
                     }
+                    // FIXME: logica de multi paxos
+                    // else if (phaseOneProcessor.getValballot() > -1) {
+                    // phaseTwoValue = phaseOneProcessor.getValue();
+                    // }
                     LOGGER.info("phaseone results: aborted={} value={}, currballot={}", ballotAborted, phaseTwoValue,
                             this.state.getCurrentBallot());
                 } else {
@@ -124,49 +126,30 @@ public class MainLoop implements Runnable {
         boolean result = processRequest(request);
         request.setResponse(result);
         this.state.getRequestHistory().moveToProcessed(request.getId());
-
-        StringBuilder sb = new StringBuilder("processed {0} (");
-        DidaMeetingsCommand command = request.getCommand();
-        if (command.meetingId() != -1) {
-            sb.append("mid={1}");
-            if (command.participantId() != -1) {
-                sb.append(", pid={2}");
-            }
-            if (command.topicId() != -1) {
-                sb.append(", topic={3}");
-            }
-        }
-        sb.append(") => result={4}");
-        LOGGER.info(sb.toString(), request.getCommand().action(),
-                request.getCommand().meetingId(), request.getCommand().participantId(), request.getCommand().topicId(),
-                result);
     }
 
     private PhaseOneProcessor runPhaseOne(int instanceId, int ballot) {
         List<Integer> acceptors = this.state.getScheduler().acceptors(ballot);
-        int numAcceptors = acceptors.size();
         int quorum = this.state.getScheduler().quorum(ballot);
-        PhaseOneRequest phaseOneRequest = PhaseOneRequest.newBuilder()
+        PhaseOneRequest request = PhaseOneRequest.newBuilder()
                 .setInstance(instanceId)
                 .setRequestballot(ballot)
                 .build();
 
-        PhaseOneProcessor phaseOneProcessor = new PhaseOneProcessor(quorum);
+        PhaseOneProcessor processor = new PhaseOneProcessor(quorum);
         List<PhaseOneReply> phaseOneResponses = new ArrayList<>();
-        GenericResponseCollector<PhaseOneReply> phaseOneCollector = new GenericResponseCollector<>(
-                phaseOneResponses, numAcceptors, phaseOneProcessor);
-        for (int i = 0; i < numAcceptors; i++) {
-            int acceptorId = acceptors.get(i);
-            CollectorStreamObserver<PhaseOneReply> observer = new CollectorStreamObserver<>(phaseOneCollector);
-            this.state.getPaxosStub(acceptorId).phaseone(phaseOneRequest, observer);
+        GenericResponseCollector<PhaseOneReply> collector = new GenericResponseCollector<>(
+                phaseOneResponses, acceptors.size(), processor);
+        for (int acceptor : acceptors) {
+            CollectorStreamObserver<PhaseOneReply> observer = new CollectorStreamObserver<>(collector);
+            this.state.getPaxosStub(acceptor).phaseone(request, observer);
         }
-        phaseOneCollector.waitUntilDone();
-        return phaseOneProcessor;
+        collector.waitUntilDone();
+        return processor;
     }
 
     private PhaseTwoResponseProcessor runPhaseTwo(int instanceId, int ballot, int value) {
         List<Integer> acceptors = this.state.getScheduler().acceptors(ballot);
-        int numAcceptors = acceptors.size();
         int quorum = this.state.getScheduler().quorum(ballot);
         PhaseTwoRequest request = PhaseTwoRequest.newBuilder()
                 .setInstance(instanceId)
@@ -177,12 +160,10 @@ public class MainLoop implements Runnable {
         PhaseTwoResponseProcessor processor = new PhaseTwoResponseProcessor(quorum);
         List<PhaseTwoReply> responses = new ArrayList<>();
         GenericResponseCollector<PhaseTwoReply> collector = new GenericResponseCollector<>(
-                responses, numAcceptors, processor);
-        for (int i = 0; i < numAcceptors; i++) {
-            int acceptorId = acceptors.get(i);
-            CollectorStreamObserver<PhaseTwoReply> observer = new CollectorStreamObserver<>(
-                    collector);
-            this.state.getPaxosStub(acceptorId).phasetwo(request, observer);
+                responses, acceptors.size(), processor);
+        for (int acceptor : acceptors) {
+            CollectorStreamObserver<PhaseTwoReply> observer = new CollectorStreamObserver<>(collector);
+            this.state.getPaxosStub(acceptor).phasetwo(request, observer);
         }
         collector.waitUntilDone();
         return processor;
@@ -192,7 +173,7 @@ public class MainLoop implements Runnable {
         DidaMeetingsCommand command = request.getCommand();
         MeetingManager meetingManager = this.state.getMeetingManager();
         DidaMeetingsAction action = command.action();
-        return switch (action) {
+        boolean result = switch (action) {
             case OPEN -> meetingManager.open(command.meetingId(), this.state.getMaxParticipants());
             case ADD -> meetingManager.addAndClose(command.meetingId(), command.participantId());
             case TOPIC -> meetingManager.setTopic(command.meetingId(), command.participantId(), command.topicId());
@@ -203,6 +184,20 @@ public class MainLoop implements Runnable {
             }
             default -> false;
         };
+        StringBuilder sb = new StringBuilder("processed {0} (");
+        if (command.meetingId() != -1) {
+            sb.append("mid={1}");
+            if (command.participantId() != -1) {
+                sb.append(", pid={2}");
+            }
+            if (command.topicId() != -1) {
+                sb.append(", topic={3}");
+            }
+        }
+        sb.append(") => result={4}");
+        LOGGER.info(sb.toString(), request.getCommand().action(), request.getCommand().meetingId(),
+                request.getCommand().participantId(), request.getCommand().topicId(), result);
+        return result;
     }
 
     private synchronized void waitForWork() {
