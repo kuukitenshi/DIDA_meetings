@@ -21,6 +21,7 @@ public class DidaMeetingsServerState {
     private final int serverId;
     private final ConfigurationScheduler scheduler;
     private final DidaMeetingsPaxosServiceStub[] paxosStubs;
+    private final int maxParticipants;
 
     private int currentBallot = 0;
     private int completedBallot = -1;
@@ -32,6 +33,7 @@ public class DidaMeetingsServerState {
     public DidaMeetingsServerState(CliArgs args) {
         this.serverId = args.serverId();
         this.scheduler = args.scheduler();
+        this.maxParticipants = args.maxParticipants();
         int nodeCount = this.scheduler.allparticipants().size();
         this.paxosStubs = new DidaMeetingsPaxosServiceStub[nodeCount];
         for (int i = 0; i < nodeCount; i++) {
@@ -64,6 +66,10 @@ public class DidaMeetingsServerState {
 
     public DidaMeetingsPaxosServiceStub getPaxosStub(int serverId) {
         return this.paxosStubs[serverId];
+    }
+
+    public int getMaxParticipants() {
+        return maxParticipants;
     }
 
     public synchronized void setDebugMode(int mode) {
@@ -178,11 +184,12 @@ public class DidaMeetingsServerState {
             instance.commandId = value;
             instance.writeBallot = ballot;
             instance.writeTimestamp = java.time.Instant.now();
-            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} with ballot {}", 
+            LOGGER.debug("WriteValue: Set replica {} instance {} value to {} with ballot {}",
                     replica, instanceId, value, ballot);
             return true;
         } catch (Exception e) {
-            LOGGER.warn("Failed to set instance {} value to {} with ballot {}: {}", instanceId, value, ballot, e.getMessage());
+            LOGGER.warn("Failed to set instance {} value to {} with ballot {}: {}", instanceId, value, ballot,
+                    e.getMessage());
             return false;
         }
     }
