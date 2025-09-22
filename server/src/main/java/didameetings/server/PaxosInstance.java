@@ -12,8 +12,7 @@ public class PaxosInstance {
     public int numAccepts = 0;
     public boolean decided = false;
     public boolean valueLocked = false;
-    public Instant writeTimestamp = null;
-    
+
     public PaxosInstance(int id) {
         this(id, -1);
     }

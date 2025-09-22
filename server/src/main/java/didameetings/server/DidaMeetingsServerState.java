@@ -183,7 +183,6 @@ public class DidaMeetingsServerState {
             PaxosInstance instance = this.paxosLog.testAndSetEntry(instanceId);
             instance.commandId = value;
             instance.writeBallot = ballot;
-            instance.writeTimestamp = java.time.Instant.now();
             LOGGER.debug("WriteValue: Set replica {} instance {} value to {} with ballot {}",
                     replica, instanceId, value, ballot);
             return true;
