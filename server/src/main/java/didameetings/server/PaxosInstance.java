@@ -9,7 +9,6 @@ public class PaxosInstance {
     public int acceptBallot = -1;
     public int numAccepts = 0;
     public boolean decided = false;
-    public boolean valueLocked = false;
 
     public PaxosInstance(int id) {
         this(id, -1);
