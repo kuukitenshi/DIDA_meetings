@@ -11,3 +11,4 @@ target/
 cmd.md
 *.pdf
 /.direnv/
+*.zip

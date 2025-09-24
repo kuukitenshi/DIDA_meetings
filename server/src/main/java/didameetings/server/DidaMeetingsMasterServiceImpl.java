@@ -39,8 +39,6 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceImpl
         } else {
             completedBallot = this.state.getCompletedBallot();
         }
-        LOGGER.info("update ballots: current={} completed={}", this.state.getCurrentBallot(),
-                this.state.getCompletedBallot());
 
         NewBallotReply response = NewBallotReply.newBuilder()
                 .setReqid(reqId)
