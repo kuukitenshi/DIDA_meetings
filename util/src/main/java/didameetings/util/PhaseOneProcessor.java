@@ -3,6 +3,7 @@ package didameetings.util;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import didameetings.DidaMeetingsPaxos.PhaseOneReply;
 import didameetings.DidaMeetingsPaxos.WrittenValue;
@@ -37,8 +38,7 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
     @Override
     public synchronized boolean onNext(List<PhaseOneReply> allResponses, PhaseOneReply lastResponse) {
         this.responses++;
-        LOGGER.debug("received reply {}/{} (accepted={}, maxballot={})", this.responses, this.quorum,
-                lastResponse.getAccepted(), lastResponse.getMaxballot());
+        logResponse(lastResponse);
 
         if (!lastResponse.getAccepted()) {
             this.accepted = false;
@@ -57,5 +57,16 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
             }
         }
         return this.responses >= this.quorum;
+    }
+
+    private void logResponse(PhaseOneReply response) {
+        boolean accepted = response.getAccepted();
+        int maxballot = response.getMaxballot();
+        Stream<String> valuesStream = response.getValuesList().stream()
+                .map(value -> String.format("{instance=%s, value=%s, ballot=%s}", value.getInstance(), value.getValue(),
+                        value.getBallot()));
+        String values = "[" + String.join(", ", valuesStream.toList()) + "]";
+        LOGGER.debug("received reply {}/{} (acccepted={}, maxballot={}, values={})", this.responses, this.quorum,
+                accepted, maxballot, values);
     }
 }

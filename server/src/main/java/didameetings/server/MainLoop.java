@@ -1,7 +1,12 @@
 package didameetings.server;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.Set;
 
 import didameetings.DidaMeetingsPaxos.PhaseOneReply;
 import didameetings.DidaMeetingsPaxos.PhaseOneRequest;
@@ -21,9 +26,13 @@ public class MainLoop implements Runnable {
     private static final Logger LOGGER = new FancyLogger("MainLoop");
 
     private final DidaMeetingsServerState state;
+    private final ExecutorService phaseTwoExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final Set<Integer> reservedRequests = new HashSet<>();
 
     private boolean hasWork = false;
-    private int nextLogEntry = -1;
+    private int instanceToPropose = 0;
+    private int instanceToProcess = 0;
+    private int lastBallotAsLeader = -1;
 
     public MainLoop(DidaMeetingsServerState state) {
         this.state = state;
@@ -31,101 +40,101 @@ public class MainLoop implements Runnable {
 
     @Override
     public void run() {
-        waitForWork();
         while (true) {
-            this.nextLogEntry++;
-            this.processEntry(this.nextLogEntry);
+            waitForWork();
+            tryProposeEntry();
+            tryProcessEntry();
+        }
+    }
+
+    private synchronized void waitForWork() {
+        this.hasWork = false;
+        while (!this.hasWork) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+            }
         }
     }
 
     public synchronized void wakeup() {
         this.hasWork = true;
-        notify();
+        notifyAll();
     }
 
-    public synchronized void processEntry(int instanceId) {
-        ConfigurationScheduler scheduler = this.state.getScheduler();
-        PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(instanceId);
-
-        while (!paxosInstance.decided) {
-            RequestRecord request = this.state.getRequestHistory().getFirstPending();
+    public synchronized void tryProposeEntry() {
+        while (true) {
+            ConfigurationScheduler scheduler = this.state.getScheduler();
+            PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToPropose);
+            while (paxosInstance.decided) {
+                this.instanceToPropose++;
+                paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToPropose);
+            }
             int ballot = this.state.getCurrentBallot();
-            int currentLeader = scheduler.leader(ballot);
+            if (ballot <= -1 || this.state.getServerId() != scheduler.leader(ballot)) {
+                break;
+            }
 
-            if (ballot > -1 && request != null && currentLeader == this.state.getServerId()) {
-                LOGGER.info("server {} is leader for ballot {}, processing instance {}, trying value {}",
-                        this.state.getServerId(), ballot, instanceId, request.getId());
-                boolean ballotAborted = false;
-                int phaseTwoValue = request.getId();
-
-                int previousLeader = this.state.getCompletedBallot() > -1
-                        ? scheduler.leader(this.state.getCompletedBallot())
-                        : -1;
-                boolean shouldRunPhaseOne = (previousLeader == -1) || (previousLeader != currentLeader);
-
-                // Phase 1
-                if (shouldRunPhaseOne) {
-                    LOGGER.info("executing Phase 1 (leader change or first time)");
-                    PhaseOneProcessor phaseOneProcessor = runPhaseOne(instanceId, ballot);
-
-                    if (!phaseOneProcessor.getAccepted()) {
-                        ballotAborted = true;
-                        int maxballot = phaseOneProcessor.getMaxballot();
-                        if (maxballot > this.state.getCurrentBallot()) {
-                            this.state.setCurrentBallot(maxballot);
-                        }
+            if (ballot > lastBallotAsLeader) {
+                LOGGER.info("server {} is leader for ballot {}, running phase one once", this.state.getServerId(),
+                        ballot);
+                lastBallotAsLeader = ballot;
+                this.reservedRequests.clear();
+                PhaseOneProcessor processor = runPhaseOne(this.instanceToPropose, ballot);
+                LOGGER.debug("phaseone results: aborted={} maxballot={}", !processor.getAccepted(),
+                        processor.getMaxballot());
+                if (!processor.getAccepted()) {
+                    int maxballot = processor.getMaxballot();
+                    if (maxballot > this.state.getCurrentBallot()) {
+                        this.state.setCurrentBallot(ballot);
                     }
-                    // FIXME: logica de multi paxos
-                    // else if (phaseOneProcessor.getValballot() > -1) {
-                    // phaseTwoValue = phaseOneProcessor.getValue();
-                    // }
-                    LOGGER.info("phaseone results: aborted={} value={}, currballot={}", ballotAborted, phaseTwoValue,
-                            this.state.getCurrentBallot());
+                    break;
                 } else {
-                    LOGGER.info("skipping Phase 1 (same leader, Multi-Paxos optimization)");
+                    processor.getWrittenValues().forEach((instance, written) -> {
+                        PaxosInstance paxos = this.state.getPaxosLog().testAndSetEntry(instance);
+                        paxos.commandId = written.getValue();
+                        paxos.writeBallot = written.getBallot();
+                        this.reservedRequests.add(paxos.commandId);
+                    });
                 }
+            }
 
-                // Phase 2
-                if (!ballotAborted) {
-                    LOGGER.info("executing Phase 2");
-                    PhaseTwoResponseProcessor phaseTwoProcessor = runPhaseTwo(instanceId, ballot, phaseTwoValue);
-                    LOGGER.info("phasetwo results: aborted={} maxballot={}", !phaseTwoProcessor.getAccepted(),
-                            phaseTwoProcessor.getMaxballot());
-                    if (!phaseTwoProcessor.getAccepted()) {
-                        ballotAborted = true;
-                        this.state.setCurrentBallot(phaseTwoProcessor.getMaxballot());
-                    } else {
-                        this.state.setCompletedBallot(ballot);
-                        paxosInstance.commandId = phaseTwoValue;
-                        paxosInstance.decided = true;
-                        if (shouldRunPhaseOne) {
-                            LOGGER.info("DECIDED instance {} with reqid {} (Multi-Paxos: Phase 1 + Phase 2)",
-                                    instanceId, phaseTwoValue);
-                        } else {
-                            LOGGER.info("DECIDED instance {} with reqid {} (Multi-Paxos: Phase 2 only)", instanceId,
-                                    phaseTwoValue);
-                        }
-                    }
+            int phaseTwoValue = paxosInstance.commandId;
+            if (phaseTwoValue == -1) {
+                RequestRecord request = findNextPendingRequest();
+                if (request == null) {
+                    break;
                 }
+                phaseTwoValue = request.getId();
             }
-            if (!paxosInstance.decided) {
-                this.hasWork = false;
-                waitForWork();
-            }
+            this.reservedRequests.add(phaseTwoValue);
+            dispatchPhaseTwo(paxosInstance.instanceId, ballot, phaseTwoValue);
+            this.instanceToPropose++;
         }
+    }
 
+    private synchronized void tryProcessEntry() {
+        PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToProcess);
+        if (!paxosInstance.decided) {
+            return;
+        }
         RequestRecord request = this.state.getRequestHistory().getIfPending(paxosInstance.commandId);
-        while (request == null) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-            }
-            request = this.state.getRequestHistory().getIfPending(paxosInstance.commandId);
+        if (request == null) {
+            return;
         }
-
         boolean result = processRequest(request);
         request.setResponse(result);
         this.state.getRequestHistory().moveToProcessed(request.getId());
+        this.reservedRequests.remove(request.getId());
+        this.instanceToProcess++;
+    }
+
+    private RequestRecord findNextPendingRequest() {
+        Optional<RequestRecord> opt = this.state.getRequestHistory().getAllPending()
+                .stream()
+                .filter(r -> !this.reservedRequests.contains(r.getId()))
+                .findFirst();
+        return opt.isPresent() ? opt.get() : null;
     }
 
     private PhaseOneProcessor runPhaseOne(int instanceId, int ballot) {
@@ -137,9 +146,9 @@ public class MainLoop implements Runnable {
                 .build();
 
         PhaseOneProcessor processor = new PhaseOneProcessor(quorum);
-        List<PhaseOneReply> phaseOneResponses = new ArrayList<>();
-        GenericResponseCollector<PhaseOneReply> collector = new GenericResponseCollector<>(
-                phaseOneResponses, acceptors.size(), processor);
+        List<PhaseOneReply> responses = new ArrayList<>();
+        GenericResponseCollector<PhaseOneReply> collector = new GenericResponseCollector<>(responses, acceptors.size(),
+                processor);
         for (int acceptor : acceptors) {
             CollectorStreamObserver<PhaseOneReply> observer = new CollectorStreamObserver<>(collector);
             this.state.getPaxosStub(acceptor).phaseone(request, observer);
@@ -169,6 +178,18 @@ public class MainLoop implements Runnable {
         return processor;
     }
 
+    private void dispatchPhaseTwo(int instanceId, int ballot, int value) {
+        this.phaseTwoExecutor.submit(() -> {
+            PhaseTwoResponseProcessor processor = runPhaseTwo(instanceId, ballot, value);
+            if (!processor.getAccepted()) {
+                this.state.setCurrentBallot(processor.getMaxballot());
+            } else {
+                this.state.setCompletedBallot(ballot);
+                LOGGER.info("DECIDED instace {} with value {}", instanceId, value);
+            }
+        });
+    }
+
     private boolean processRequest(RequestRecord request) {
         DidaMeetingsCommand command = request.getCommand();
         MeetingManager meetingManager = this.state.getMeetingManager();
@@ -184,6 +205,11 @@ public class MainLoop implements Runnable {
             }
             default -> false;
         };
+        logCommand(command, result);
+        return result;
+    }
+
+    private void logCommand(DidaMeetingsCommand command, boolean result) {
         StringBuilder sb = new StringBuilder("processed {0} (");
         if (command.meetingId() != -1) {
             sb.append("mid={1}");
@@ -195,17 +221,7 @@ public class MainLoop implements Runnable {
             }
         }
         sb.append(") => result={4}");
-        LOGGER.info(sb.toString(), request.getCommand().action(), request.getCommand().meetingId(),
-                request.getCommand().participantId(), request.getCommand().topicId(), result);
-        return result;
-    }
-
-    private synchronized void waitForWork() {
-        while (this.hasWork == false) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-            }
-        }
+        LOGGER.info(sb.toString(), command.action(), command.meetingId(), command.participantId(), command.topicId(),
+                result);
     }
 }
