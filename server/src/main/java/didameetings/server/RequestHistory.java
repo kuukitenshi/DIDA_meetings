@@ -2,6 +2,7 @@ package didameetings.server;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Collection;
 
 public class RequestHistory {
 
@@ -38,5 +39,9 @@ public class RequestHistory {
         RequestRecord record = this.pending.remove(requestid);
         this.processed.put(requestid, record);
         return record;
+    }
+
+    public synchronized Collection<RequestRecord> getAllPending() {
+        return this.pending.values();
     }
 }

@@ -55,7 +55,7 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
             }
             maxballot = this.state.getCurrentBallot();
         }
-        LOGGER.debug("phaseone results: instance={}, maxballot={}, accepted={}, val={}, valballot={}", instance,
+        LOGGER.debug("phaseone reply: instance={}, maxballot={}, accepted={}, val={}, valballot={}", instance,
                 maxballot, accepted, value, valballot);
 
         PhaseOneReply.Builder responseBuilder = PhaseOneReply.newBuilder()
@@ -144,7 +144,7 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
 
         synchronized (this) {
             PaxosInstance entry = this.state.getPaxosLog().testAndSetEntry(instance);
-            if (!entry.decided) { // ignore if already decided
+            if (!entry.decided) {
                 this.state.setCurrentBallot(ballot);
                 if (ballot == entry.acceptBallot) {
                     entry.numAccepts++;
