@@ -1,40 +1,33 @@
-# DAD2526
+# DAD2526 - Checkpoint
 
-# Requirements
+## Group 11
+- 112269 - Laura Cunha
+- 112270 - Rodrigo Correia
+- 116117 - Pedro Silva
 
+## Checkpoint implemented features:
+- **Step 0 (provided):** Baseline. In this implementation, the system implements statemachine replication and runs “Schedule A” only. A simple, and incomplete, version of the baseline has been already implemented and is provided to students.
+- **Step 1:** Complete the baseline. Implement debug modes required to show that the baseline is bogus. Complete the baseline, namely by doing a proper Paxos “phase 1”.
+- **Step 2:** Multi-Paxos. The system implements Multi-Paxos, running “Schedule A”
+
+
+# Build
+
+## Dependencies
 The project requires the following packages:
-
 - Java 22
 - Maven 3.8.4
 - Protoc 3.12
 
 ## Environment
+The project includes a template `setup_env.sh` to download all necessary packages for execution.
+The script was designed for Linux/Ubuntu distributions on an Intel x86 environments.
 
-The project includes a template `setup_env.sh` which students may use as basis to download all necessary packages for
-the project execution.
-The current script was designed for Linux/Ubuntu distributions on an Intel x86 environments.
-Students may extend this script for their target distribution/CPU architecture.
+## Compiling
+To compile the project, run the command `mvn clean install` in the root directory.
 
-If so, it will keep all required packages in `INSTALL_DIR`, which can be activated by running
-`source INSTALL_DIR/env.sh`.
 
-# Compiling
-
-To compile the project, students must run the command
-`mvn clean install` in the root directory
-
-## ⚠️ ️**WARNING - Compilation Environment** ⚠️
-
-The project requires different `pom.xml` for the *contract* module depending on the CPU architecture/OS distribution.
-The project currently has two pre-pepared poms:
-
-- One for **ARM/M4 Mac-OS** based systems, named `arm-pom.xml`;
-- One for **Intel/Linux** based systems, named `intel-pom.xml`;
-
-Before the first compilation, copy your required contract pom and rename it to `pom.xml`.
-
-# Deployment
-
+# Run
 Current implementation assumes that all modules run on the same physical machine and requires 5 active servers.
 
 The project is composed of three main components:
@@ -51,12 +44,10 @@ The servers run the base implementation. They are executed running the following
 
 Where you must fill in the following arguments:
 
-- **{port}**: Base port of all servers. **All servers should use the same port**. The Server binded port will be  *
-  *{port} + {id}**.
-- **{id}**: Sequential id of the server. Current implementation requires servers to be ID'ed starting from *0* to *N-1*
-  servers.
-- **{scheduler}**: The scheduler used for reconfiguration (use 'A' to start)
-- **{max}**: The maximum number of participants in a meeting
+- **{port}**: Base port of all servers. **All servers should use the same port**. The Server binded port will be  **{port} + {id}**.
+- **{id}**: Sequential id of the server. Current implementation requires servers to be ID'ed starting from *0* to *N-1* servers.
+- **{scheduler}**: The scheduler used for reconfiguration (use 'A' to start).
+- **{max}**: The maximum number of participants in a meeting.
 
 ## Client
 
@@ -67,9 +58,9 @@ A client that executes transactions. It is executed by running the following com
 Where you must fill in the following arguments:
 
 - **{id}**: Sequential id of the client. Current implementation requires clients to be ID'ed starting from *1*.
-- **{host}**: The host for all servers. (just use "localhost")
+- **{host}**: The host for all servers. (just use "localhost").
 - **{port}**: Base port of all servers.
-- **{scheduler}**: The scheduler used (use 'A' to start)
+- **{scheduler}**: The scheduler used (use 'A' to start).
 
 The client module opens a terminal from where students may issue commands. The following commands are available:
 
@@ -101,8 +92,8 @@ commands are available:
 
 To support these modules, the project has additional directories:
 
-- *contract*, holding the required `.proto` files;
-- *util*, holding the general classes to collect RPC responses
-- *core*, holding the general classes that manage meetings
-- *configs*, holding the general classes that manage configurations
+- *contract* - holding the required `.proto` files.
+- *util* - holding the general classes to collect RPC responses.
+- *core* - holding the general classes that manage meetings.
+- *configs* - holding the general classes that manage configurations.
   
