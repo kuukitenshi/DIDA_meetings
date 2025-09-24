@@ -1,8 +1,9 @@
 package didameetings.server;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Collection;
 
 public class RequestHistory {
 
@@ -42,6 +43,7 @@ public class RequestHistory {
     }
 
     public synchronized Collection<RequestRecord> getAllPending() {
-        return this.pending.values();
+        // devolve cópia para evitar problemas de concorrência durante a iteração
+        return new ArrayList<>(this.pending.values());
     }
 }

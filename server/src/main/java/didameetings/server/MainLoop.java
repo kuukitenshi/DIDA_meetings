@@ -48,13 +48,13 @@ public class MainLoop implements Runnable {
     }
 
     private synchronized void waitForWork() {
-        this.hasWork = false;
         while (!this.hasWork) {
             try {
                 wait();
             } catch (InterruptedException e) {
             }
         }
+        this.hasWork = false;
     }
 
     public synchronized void wakeup() {
@@ -86,7 +86,7 @@ public class MainLoop implements Runnable {
                 if (!processor.getAccepted()) {
                     int maxballot = processor.getMaxballot();
                     if (maxballot > this.state.getCurrentBallot()) {
-                        this.state.setCurrentBallot(ballot);
+                        this.state.setCurrentBallot(maxballot);
                     }
                     break;
                 } else {
@@ -106,6 +106,7 @@ public class MainLoop implements Runnable {
                     break;
                 }
                 phaseTwoValue = request.getId();
+                paxosInstance.commandId = phaseTwoValue;
             }
             this.reservedRequests.add(phaseTwoValue);
             dispatchPhaseTwo(paxosInstance.instanceId, ballot, phaseTwoValue);
@@ -114,19 +115,21 @@ public class MainLoop implements Runnable {
     }
 
     private synchronized void tryProcessEntry() {
-        PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToProcess);
-        if (!paxosInstance.decided) {
-            return;
+        while (true) { // processa todas as instâncias decididas disponíveis (caso chegue mais de uma just in case)
+            PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToProcess);
+            if (!paxosInstance.decided) {
+                return;
+            }
+            RequestRecord request = this.state.getRequestHistory().getIfPending(paxosInstance.commandId);
+            if (request == null) {
+                return;
+            }
+            boolean result = processRequest(request);
+            request.setResponse(result);
+            this.state.getRequestHistory().moveToProcessed(request.getId());
+            this.reservedRequests.remove(request.getId());
+            this.instanceToProcess++;
         }
-        RequestRecord request = this.state.getRequestHistory().getIfPending(paxosInstance.commandId);
-        if (request == null) {
-            return;
-        }
-        boolean result = processRequest(request);
-        request.setResponse(result);
-        this.state.getRequestHistory().moveToProcessed(request.getId());
-        this.reservedRequests.remove(request.getId());
-        this.instanceToProcess++;
     }
 
     private RequestRecord findNextPendingRequest() {
@@ -187,6 +190,7 @@ public class MainLoop implements Runnable {
                 this.state.setCompletedBallot(ballot);
                 LOGGER.info("DECIDED instace {} with value {}", instanceId, value);
             }
+            wakeup();
         });
     }
 
