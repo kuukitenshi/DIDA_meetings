@@ -3,6 +3,7 @@ package didameetings.server;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -12,6 +13,7 @@ import didameetings.DidaMeetingsPaxos.PhaseOneReply;
 import didameetings.DidaMeetingsPaxos.PhaseOneRequest;
 import didameetings.DidaMeetingsPaxos.PhaseTwoReply;
 import didameetings.DidaMeetingsPaxos.PhaseTwoRequest;
+import didameetings.DidaMeetingsPaxos.WrittenValue;
 import didameetings.configs.ConfigurationScheduler;
 import didameetings.core.MeetingManager;
 import didameetings.util.CollectorStreamObserver;
@@ -90,12 +92,25 @@ public class MainLoop implements Runnable {
                     }
                     break;
                 } else {
-                    processor.getWrittenValues().forEach((instance, written) -> {
+                    int maxInstance = this.instanceToPropose;
+                    for (Map.Entry<Integer, WrittenValue> entry : processor.getWrittenValues().entrySet()) {
+                        int instance = entry.getKey();
+                        WrittenValue written = entry.getValue();
                         PaxosInstance paxos = this.state.getPaxosLog().testAndSetEntry(instance);
                         paxos.commandId = written.getValue();
                         paxos.writeBallot = written.getBallot();
                         this.reservedRequests.add(paxos.commandId);
-                    });
+                        if (instance > maxInstance) {
+                            maxInstance = instance;
+                        }
+                    }
+
+                    for (int i = this.instanceToPropose; i < maxInstance; i++) {
+                        PaxosInstance paxos = this.state.getPaxosLog().testAndSetEntry(i);
+                        if (paxos.commandId == -1) {
+                            paxos.commandId = -2;
+                        }
+                    }
                 }
             }
 
@@ -115,10 +130,17 @@ public class MainLoop implements Runnable {
     }
 
     private synchronized void tryProcessEntry() {
-        while (true) { // processa todas as instâncias decididas disponíveis (caso chegue mais de uma just in case)
+        while (true) { // processa todas as instâncias decididas disponíveis (caso chegue mais de uma
+                       // just in case)
             PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToProcess);
             if (!paxosInstance.decided) {
                 return;
+            }
+            // NOP
+            if (paxosInstance.commandId == -2) {
+                this.instanceToProcess++;
+                LOGGER.info("processed NOP");
+                continue;
             }
             RequestRecord request = this.state.getRequestHistory().getIfPending(paxosInstance.commandId);
             if (request == null) {
@@ -188,7 +210,7 @@ public class MainLoop implements Runnable {
                 this.state.setCurrentBallot(processor.getMaxballot());
             } else {
                 this.state.setCompletedBallot(ballot);
-                LOGGER.info("DECIDED instace {} with value {}", instanceId, value);
+                LOGGER.info("DECIDED instace {} with value {}", instanceId, value == -2 ? "NOP" : value);
             }
             wakeup();
         });

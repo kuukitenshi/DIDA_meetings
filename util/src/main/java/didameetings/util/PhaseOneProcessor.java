@@ -14,6 +14,7 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
 
     private final int quorum;
     private final Map<Integer, WrittenValue> values = new HashMap<>();
+    private final Map<Integer, Integer> valuesInstances = new HashMap<>();
 
     private boolean accepted = true;
     private int maxballot = -1;
@@ -54,8 +55,12 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
             this.values.putIfAbsent(instance, value);
             if (ballot > this.values.get(instance).getBallot()) {
                 this.values.put(instance, value);
+                // avoid double value in different instances
+                this.valuesInstances.computeIfPresent(value.getValue(), (_, v) -> this.valuesInstances.remove(v));
+                this.valuesInstances.put(value.getValue(), instance);
             }
         }
+
         return this.responses >= this.quorum;
     }
 
