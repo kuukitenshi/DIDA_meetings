@@ -2,8 +2,6 @@ package didameetings.server;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import didameetings.DidaMeetingsPaxos.LearnReply;
 import didameetings.DidaMeetingsPaxos.LearnRequest;
@@ -17,13 +15,13 @@ import didameetings.util.CollectorStreamObserver;
 import didameetings.util.FancyLogger;
 import didameetings.util.GenericResponseCollector;
 import didameetings.util.Logger;
+import io.grpc.Context;
 import io.grpc.stub.StreamObserver;
 
 public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBase {
 
     private static final Logger LOGGER = new FancyLogger("PaxosService");
 
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final DidaMeetingsServerState state;
     private final MainLoop mainLoop;
 
@@ -115,7 +113,8 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
 
         // Notify learners
         if (accepted == true) {
-            this.executor.submit(() -> {
+            Context ctx = Context.current().fork();
+            ctx.run(() -> {
                 List<Integer> learners = this.state.getScheduler().learners(ballot);
                 LearnRequest learnRequest = LearnRequest.newBuilder()
                         .setInstance(instance)
