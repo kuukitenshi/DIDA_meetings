@@ -1,6 +1,7 @@
 package didameetings.server;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class MainLoop implements Runnable {
     private final ExecutorService phaseTwoExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final Set<Integer> reservedRequests = new HashSet<>();
 
+    private Map<Integer, Integer> previousRequests = new HashMap<>();
     private boolean hasWork = false;
     private int instanceToPropose = 0;
     private int instanceToProcess = 0;
@@ -82,6 +84,7 @@ public class MainLoop implements Runnable {
                         ballot);
                 lastBallotAsLeader = ballot;
                 this.reservedRequests.clear();
+                this.previousRequests.clear();
                 PhaseOneProcessor processor = runPhaseOne(this.instanceToPropose, ballot);
                 LOGGER.debug("phaseone results: aborted={} maxballot={}", !processor.getAccepted(),
                         processor.getMaxballot());
@@ -96,35 +99,30 @@ public class MainLoop implements Runnable {
                     for (Map.Entry<Integer, WrittenValue> entry : processor.getWrittenValues().entrySet()) {
                         int instance = entry.getKey();
                         WrittenValue written = entry.getValue();
-                        PaxosInstance paxos = this.state.getPaxosLog().testAndSetEntry(instance);
-                        paxos.commandId = written.getValue();
-                        paxos.writeBallot = written.getBallot();
-                        this.reservedRequests.add(paxos.commandId);
+                        int reqid = written.getValue();
+                        this.reservedRequests.add(written.getValue());
+                        this.previousRequests.put(instance, reqid);
                         if (instance > maxInstance) {
                             maxInstance = instance;
                         }
                     }
 
                     for (int i = this.instanceToPropose; i < maxInstance; i++) {
-                        PaxosInstance paxos = this.state.getPaxosLog().testAndSetEntry(i);
-                        if (paxos.commandId == -1) {
-                            paxos.commandId = -2;
-                        }
+                        this.previousRequests.putIfAbsent(i, -2);
                     }
                 }
             }
 
-            int phaseTwoValue = paxosInstance.commandId;
-            if (phaseTwoValue == -1) {
+            int valueToPropose = this.previousRequests.getOrDefault(this.instanceToPropose, -1);
+            if (valueToPropose == -1) {
                 RequestRecord request = findNextPendingRequest();
                 if (request == null) {
                     break;
                 }
-                phaseTwoValue = request.getId();
-                paxosInstance.commandId = phaseTwoValue;
+                valueToPropose = request.getId();
             }
-            this.reservedRequests.add(phaseTwoValue);
-            dispatchPhaseTwo(paxosInstance.instanceId, ballot, phaseTwoValue);
+            this.reservedRequests.add(valueToPropose);
+            dispatchPhaseTwo(paxosInstance.instanceId, ballot, valueToPropose);
             this.instanceToPropose++;
         }
     }

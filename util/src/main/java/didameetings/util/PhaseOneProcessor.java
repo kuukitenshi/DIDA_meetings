@@ -1,8 +1,10 @@
 package didameetings.util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import didameetings.DidaMeetingsPaxos.PhaseOneReply;
@@ -14,7 +16,6 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
 
     private final int quorum;
     private final Map<Integer, WrittenValue> values = new HashMap<>();
-    private final Map<Integer, Integer> valuesInstances = new HashMap<>();
 
     private boolean accepted = true;
     private int maxballot = -1;
@@ -33,7 +34,22 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
     }
 
     public Map<Integer, WrittenValue> getWrittenValues() {
-        return this.values;
+        // replace duplicates with NOPs
+        Set<Integer> seenRequests = new HashSet<>();
+        Map<Integer, WrittenValue> nopMap = new HashMap<>();
+        this.values.entrySet().stream()
+                .sorted((e1, e2) -> Integer.compare(e2.getKey(), e1.getKey())) // sort by instances in reverse
+                .forEach(e -> {
+                    int reqid = e.getValue().getValue();
+                    if (!seenRequests.contains(reqid)) {
+                        nopMap.put(e.getKey(), e.getValue());
+                        seenRequests.add(reqid);
+                    } else {
+                        WrittenValue nop = WrittenValue.newBuilder(e.getValue()).setValue(-2).build();
+                        nopMap.put(e.getKey(), nop);
+                    }
+                });
+        return nopMap;
     }
 
     @Override
@@ -55,12 +71,8 @@ public class PhaseOneProcessor extends GenericResponseProcessor<PhaseOneReply> {
             this.values.putIfAbsent(instance, value);
             if (ballot > this.values.get(instance).getBallot()) {
                 this.values.put(instance, value);
-                // avoid double value in different instances
-                this.valuesInstances.computeIfPresent(value.getValue(), (_, v) -> this.valuesInstances.remove(v));
-                this.valuesInstances.put(value.getValue(), instance);
             }
         }
-
         return this.responses >= this.quorum;
     }
 

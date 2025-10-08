@@ -63,12 +63,16 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
                 .setAccepted(accepted)
                 .setMaxballot(maxballot);
 
-        this.state.getPaxosLog().entries().stream()
-                .filter(e -> e.instanceId >= instance)
-                .filter(e -> e.commandId != -1)
-                .map(e -> WrittenValue.newBuilder().setInstance(e.instanceId).setValue(e.commandId)
-                        .setBallot(e.writeBallot))
-                .forEach(responseBuilder::addValues);
+        if (accepted) {
+            this.state.getPaxosLog().entries().stream()
+                    .filter(e -> e.instanceId >= instance)
+                    .filter(e -> e.commandId != -1)
+                    .map(e -> WrittenValue.newBuilder()
+                            .setInstance(e.instanceId)
+                            .setValue(e.commandId)
+                            .setBallot(e.writeBallot))
+                    .forEach(responseBuilder::addValues);
+        }
 
         PhaseOneReply response = responseBuilder.build();
         responseObserver.onNext(response);
