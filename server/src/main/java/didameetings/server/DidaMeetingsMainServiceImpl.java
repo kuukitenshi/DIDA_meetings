@@ -72,10 +72,13 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
         int topic = request.getTopicid();
         LOGGER.debug("received topic request (reqid: {}, mid: {}, pid: {}, topic: {})", reqid, mid, pid, topic);
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.TOPIC, mid, pid, topic);
-        boolean result = processCommand(reqid, command);
+
+        RequestRecord record = new RequestRecord(reqid, command);
+        this.state.getRequestHistory().addToTopicQueue(record);
+        this.mainLoop.wakeup();
         TopicReply response = TopicReply.newBuilder()
                 .setReqid(reqid)
-                .setResult(result)
+                .setResult(true)
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -117,11 +120,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     private boolean processCommand(int requestId, DidaMeetingsCommand command) {
         RequestRecord request = new RequestRecord(requestId, command);
-        if (command.action() == DidaMeetingsAction.TOPIC) {
-            this.state.getRequestHistory().addToTopicQueue(request);
-        } else {
-            this.state.getRequestHistory().addToPending(requestId, request);
-        }
+        this.state.getRequestHistory().addToPending(requestId, request);
         this.mainLoop.wakeup();
         return request.waitForResponse();
     }
