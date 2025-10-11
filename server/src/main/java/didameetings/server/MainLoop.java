@@ -182,11 +182,11 @@ public class MainLoop implements Runnable {
                 boolean result = processRequest(topicRequest);
                 topicRequest.setResponse(result);
                 requestHistory.moveToProcessed(topicRequest.getId());
-                LOGGER.info("> TOPIC request processed from queue: mid={}, pid={}, topic={}, result={}", 
+                LOGGER.info("TOPIC request processed from queue: mid={}, pid={}, topic={}, result={}", 
                            meetingId, participantId, command.topicId(), result);
             } else {
                 postponedRequests.add(topicRequest);
-                LOGGER.debug("> TOPIC request postponed: meeting {} doesn't exist or participant {} not in meeting", meetingId, participantId);
+                LOGGER.debug("TOPIC request postponed: meeting {} doesn't exist or participant {} not in meeting", meetingId, participantId);
             }
         }
         // requeue postponed requests
