@@ -117,7 +117,11 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
 
     private boolean processCommand(int requestId, DidaMeetingsCommand command) {
         RequestRecord request = new RequestRecord(requestId, command);
-        this.state.getRequestHistory().addToPending(requestId, request);
+        if (command.action() == DidaMeetingsAction.TOPIC) {
+            this.state.getRequestHistory().addToTopicQueue(request);
+        } else {
+            this.state.getRequestHistory().addToPending(requestId, request);
+        }
         this.mainLoop.wakeup();
         return request.waitForResponse();
     }

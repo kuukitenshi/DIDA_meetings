@@ -132,7 +132,7 @@ public class MainLoop implements Runnable {
                        // just in case)
             PaxosInstance paxosInstance = this.state.getPaxosLog().testAndSetEntry(this.instanceToProcess);
             if (!paxosInstance.decided) {
-                return;
+                break;
             }
             // NOP
             if (paxosInstance.commandId == -2) {
@@ -142,13 +142,56 @@ public class MainLoop implements Runnable {
             }
             RequestRecord request = this.state.getRequestHistory().getIfPending(paxosInstance.commandId);
             if (request == null) {
-                return;
+                break;
             }
             boolean result = processRequest(request);
             request.setResponse(result);
             this.state.getRequestHistory().moveToProcessed(request.getId());
             this.reservedRequests.remove(request.getId());
             this.instanceToProcess++;
+        }
+        // verify if can process TOPIC requests after processing normal ones
+        processTopicQueue();
+    }
+
+    private synchronized void processTopicQueue() {
+        RequestHistory requestHistory = this.state.getRequestHistory();
+        MeetingManager meetingManager = this.state.getMeetingManager();
+
+        List<RequestRecord> postponedRequests = new ArrayList<>();
+        int originalQueueSize = requestHistory.getTopicQueueSize();
+        int processed = 0;
+        
+        while (!requestHistory.isTopicQueueEmpty() && processed < originalQueueSize) {
+            RequestRecord topicRequest = requestHistory.pollFromTopicQueue();
+            if (topicRequest == null) {
+                break;
+            }
+            processed++;
+            
+            DidaMeetingsCommand command = topicRequest.getCommand();
+            int meetingId = command.meetingId();
+            int participantId = command.participantId();
+            boolean canExecuteTopic = false;
+            
+            List<Integer> participantsWithoutTopic = meetingManager.participantsWithoutTopic(meetingId);
+            if (participantsWithoutTopic != null && participantsWithoutTopic.contains(participantId)) {
+                canExecuteTopic = true;
+            }
+            if (canExecuteTopic) {
+                boolean result = processRequest(topicRequest);
+                topicRequest.setResponse(result);
+                requestHistory.moveToProcessed(topicRequest.getId());
+                LOGGER.info("> TOPIC request processed from queue: mid={}, pid={}, topic={}, result={}", 
+                           meetingId, participantId, command.topicId(), result);
+            } else {
+                postponedRequests.add(topicRequest);
+                LOGGER.debug("> TOPIC request postponed: meeting {} doesn't exist or participant {} not in meeting", meetingId, participantId);
+            }
+        }
+        // requeue postponed requests
+        for (RequestRecord postponedRequest : postponedRequests) {
+            requestHistory.addToTopicQueue(postponedRequest);
         }
     }
 
