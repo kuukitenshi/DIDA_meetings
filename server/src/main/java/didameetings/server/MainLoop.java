@@ -48,6 +48,7 @@ public class MainLoop implements Runnable {
             waitForWork();
             tryProposeEntry();
             tryProcessEntry();
+            tryProcessTopics();
         }
     }
 
@@ -150,48 +151,34 @@ public class MainLoop implements Runnable {
             this.reservedRequests.remove(request.getId());
             this.instanceToProcess++;
         }
-        // verify if can process TOPIC requests after processing normal ones
-        processTopicQueue();
     }
 
-    private synchronized void processTopicQueue() {
+    private synchronized void tryProcessTopics() {
         RequestHistory requestHistory = this.state.getRequestHistory();
         MeetingManager meetingManager = this.state.getMeetingManager();
+        Set<RequestRecord> pendingTopics = requestHistory.getPendingTopics();
 
-        List<RequestRecord> postponedRequests = new ArrayList<>();
-        int originalQueueSize = requestHistory.getTopicQueueSize();
-        int processed = 0;
-        
-        while (!requestHistory.isTopicQueueEmpty() && processed < originalQueueSize) {
-            RequestRecord topicRequest = requestHistory.pollFromTopicQueue();
-            if (topicRequest == null) {
-                break;
-            }
-            processed++;
-            
-            DidaMeetingsCommand command = topicRequest.getCommand();
-            int meetingId = command.meetingId();
-            int participantId = command.participantId();
-            boolean canExecuteTopic = false;
-            
-            List<Integer> participantsWithoutTopic = meetingManager.participantsWithoutTopic(meetingId);
-            if (participantsWithoutTopic != null && participantsWithoutTopic.contains(participantId)) {
-                canExecuteTopic = true;
-            }
+        for (RequestRecord request : pendingTopics) {
+            DidaMeetingsCommand command = request.getCommand();
+            int mid = command.meetingId();
+            int pid = command.participantId();
+
+            List<Integer> withoutTopic = meetingManager.participantsWithoutTopic(mid);
+            List<Integer> withTopic = meetingManager.participantsWithTopic(mid);
+            boolean canExecuteTopic = (withoutTopic != null && withoutTopic.contains(pid))
+                    || (withTopic != null && withTopic.contains(pid));
+
             if (canExecuteTopic) {
-                boolean result = processRequest(topicRequest);
-                topicRequest.setResponse(result);
-                requestHistory.moveToProcessed(topicRequest.getId());
-                LOGGER.info("TOPIC request processed from queue: mid={}, pid={}, topic={}, result={}", 
-                           meetingId, participantId, command.topicId(), result);
+                boolean result = processRequest(request);
+                request.setResponse(result);
+                requestHistory.moveToProcessed(request.getId());
+                pendingTopics.remove(request);
+                LOGGER.info("TOPIC request processed from queue: mid={}, pid={}, topic={}, result={}",
+                        mid, pid, command.topicId(), result);
             } else {
-                postponedRequests.add(topicRequest);
-                LOGGER.debug("TOPIC request postponed: meeting {} doesn't exist or participant {} not in meeting", meetingId, participantId);
+                LOGGER.debug("TOPIC request postponed: meeting {} doesn't exist or participant {} not in meeting",
+                        mid, pid);
             }
-        }
-        // requeue postponed requests
-        for (RequestRecord postponedRequest : postponedRequests) {
-            requestHistory.addToTopicQueue(postponedRequest);
         }
     }
 

@@ -42,7 +42,7 @@ public class Meeting {
         return true;
     }
 
-    public int getTopic(Integer pid) {
+    public int getTopic(int pid) {
         Participant p = this.participants.get(pid);
         return p != null ? p.getTopic() : -1;
     }
