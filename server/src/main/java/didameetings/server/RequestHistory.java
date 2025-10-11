@@ -4,14 +4,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Queue;
-import java.util.LinkedList;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 public class RequestHistory {
 
     private Map<Integer, RequestRecord> pending = new HashMap<>();
     private Map<Integer, RequestRecord> processed = new HashMap<>();
-    private Queue<RequestRecord> topicQueue = new LinkedList<>();
+    private Set<RequestRecord> pendingTopics = new CopyOnWriteArraySet<>();
 
     public synchronized RequestRecord getIfPending(int requestId) {
         return this.pending.get(requestId);
@@ -50,19 +50,7 @@ public class RequestHistory {
         return new ArrayList<>(this.pending.values());
     }
 
-    public synchronized void addToTopicQueue(RequestRecord record) {
-        this.topicQueue.offer(record);
-    }
-
-    public synchronized RequestRecord pollFromTopicQueue() {
-        return this.topicQueue.poll();
-    }
-
-    public synchronized boolean isTopicQueueEmpty() {
-        return this.topicQueue.isEmpty();
-    }
-
-    public synchronized int getTopicQueueSize() {
-        return this.topicQueue.size();
+    public Set<RequestRecord> getPendingTopics() {
+        return pendingTopics;
     }
 }

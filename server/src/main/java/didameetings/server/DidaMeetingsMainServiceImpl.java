@@ -74,7 +74,7 @@ public class DidaMeetingsMainServiceImpl extends DidaMeetingsMainServiceImplBase
         DidaMeetingsCommand command = new DidaMeetingsCommand(DidaMeetingsAction.TOPIC, mid, pid, topic);
 
         RequestRecord record = new RequestRecord(reqid, command);
-        this.state.getRequestHistory().addToTopicQueue(record);
+        this.state.getRequestHistory().getPendingTopics().add(record);
         this.mainLoop.wakeup();
         TopicReply response = TopicReply.newBuilder()
                 .setReqid(reqid)
