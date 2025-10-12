@@ -1,5 +1,7 @@
 package didameetings.server;
 
+import didameetings.DidaMeetingsMaster.ActivateReply;
+import didameetings.DidaMeetingsMaster.ActivateRequest;
 import didameetings.DidaMeetingsMaster.NewBallotReply;
 import didameetings.DidaMeetingsMaster.NewBallotRequest;
 import didameetings.DidaMeetingsMaster.SetDebugReply;
@@ -69,14 +71,27 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceImpl
         int instance = request.getInstance();
         int value = request.getValue();
         int ballot = request.getBallot();
-        LOGGER.debug("received writevalue request (reqid: {}, replica: {}, instance: {}, value: {}, ballot: {})", 
+        LOGGER.debug("received writevalue request (reqid: {}, replica: {}, instance: {}, value: {}, ballot: {})",
                 reqid, replica, instance, value, ballot);
-        
+
         boolean success = this.state.setInstanceValue(replica, instance, value, ballot);
-        
+
         WriteValueReply response = WriteValueReply.newBuilder()
                 .setReqid(reqid)
                 .setAck(success)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void activate(ActivateRequest request, StreamObserver<ActivateReply> responseObserver) {
+        int reqid = request.getReqid();
+        LOGGER.debug("received ACTIVATE request (reqid: {})", reqid);
+        this.state.setActivated(true);
+        this.mainLoop.wakeup();
+        ActivateReply response = ActivateReply.newBuilder()
+                .setReqid(reqid)
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();

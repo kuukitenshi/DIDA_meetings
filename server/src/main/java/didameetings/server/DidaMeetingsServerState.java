@@ -25,6 +25,7 @@ public class DidaMeetingsServerState {
 
     private int currentBallot = 0;
     private int completedBallot = -1;
+    private boolean activated = false;
 
     // Debug state
     private boolean isFrozen = false;
@@ -191,5 +192,13 @@ public class DidaMeetingsServerState {
                     e.getMessage());
             return false;
         }
+    }
+
+    public synchronized void setActivated(boolean activated) {
+        this.activated = activated;
+    }
+
+    public synchronized boolean isActivated() {
+        return activated;
     }
 }
