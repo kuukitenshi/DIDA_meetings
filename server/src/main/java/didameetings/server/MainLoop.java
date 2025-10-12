@@ -37,6 +37,7 @@ public class MainLoop implements Runnable {
     private int instanceToPropose = 0;
     private int instanceToProcess = 0;
     private int lastBallotAsLeader = -1;
+    private boolean ballotUpdated = false;
 
     public MainLoop(DidaMeetingsServerState state) {
         this.state = state;
@@ -86,6 +87,8 @@ public class MainLoop implements Runnable {
                 lastBallotAsLeader = ballot;
                 this.reservedRequests.clear();
                 this.previousRequests.clear();
+                this.ballotUpdated = false;
+                this.state.setActivated(false);
                 PhaseOneProcessor processor = runPhaseOne(this.instanceToPropose, ballot);
                 LOGGER.debug("phaseone results: aborted={} maxballot={}", !processor.getAccepted(),
                         processor.getMaxballot());
@@ -116,6 +119,13 @@ public class MainLoop implements Runnable {
 
             int valueToPropose = this.previousRequests.getOrDefault(this.instanceToPropose, -1);
             if (valueToPropose == -1) {
+                if (!this.ballotUpdated) {
+                    this.state.setCompletedBallot(ballot);
+                    this.ballotUpdated = true;
+                }
+                if (!this.state.isActivated()) {
+                    break;
+                }
                 RequestRecord request = findNextPendingRequest();
                 if (request == null) {
                     break;
@@ -191,7 +201,12 @@ public class MainLoop implements Runnable {
     }
 
     private PhaseOneProcessor runPhaseOne(int instanceId, int ballot) {
-        List<Integer> acceptors = this.state.getScheduler().acceptors(ballot);
+        int completedBallot = this.state.getCompletedBallot();
+        if (completedBallot == -1) {
+            completedBallot = ballot;
+        }
+        List<Integer> acceptors = this.state.getScheduler().acceptors(completedBallot);
+        LOGGER.debug("reading from acceptors of ballot {}: {}", completedBallot, acceptors);
         int quorum = this.state.getScheduler().quorum(ballot);
         PhaseOneRequest request = PhaseOneRequest.newBuilder()
                 .setInstance(instanceId)
@@ -237,7 +252,7 @@ public class MainLoop implements Runnable {
             if (!processor.getAccepted()) {
                 this.state.setCurrentBallot(processor.getMaxballot());
             } else {
-                this.state.setCompletedBallot(ballot);
+                // this.state.setCompletedBallot(ballot);
                 LOGGER.info("DECIDED instace {} with value {}", instanceId, value == -2 ? "NOP" : value);
             }
             wakeup();

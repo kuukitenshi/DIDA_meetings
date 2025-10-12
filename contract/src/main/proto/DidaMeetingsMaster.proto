@@ -38,9 +38,18 @@ message WriteValueReply {
   bool ack    = 2;
 }
 
+message ActivateRequest {
+  int32 reqid = 1;
+}
+
+message ActivateReply {
+  int32 reqid = 1;
+}
+
 service DidaMeetingsMasterService {
   rpc newballot (NewBallotRequest) returns (NewBallotReply);
   rpc setdebug (SetDebugRequest) returns (SetDebugReply);
   rpc writevalue (WriteValueRequest) returns (WriteValueReply);
+  rpc activate (ActivateRequest) returns (ActivateReply);
 }
 

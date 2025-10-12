@@ -154,7 +154,7 @@ public class DidaMeetingsPaxosServiceImpl extends DidaMeetingsPaxosServiceImplBa
                     if (entry.numAccepts >= this.state.getScheduler().quorum(ballot)) {
                         LOGGER.debug("quorum reached for instance {} with {} accepts, deciding value {} in ballot {}",
                                 instance, entry.numAccepts, entry.commandId, entry.acceptBallot);
-                        this.state.updateCompletedBallot(ballot);
+                        // this.state.updateCompletedBallot(ballot);
                         entry.decided = true;
                         this.mainLoop.wakeup();
                     }

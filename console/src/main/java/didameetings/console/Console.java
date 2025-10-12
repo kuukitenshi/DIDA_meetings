@@ -9,6 +9,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import didameetings.DidaMeetingsMasterServiceGrpc;
+import didameetings.DidaMeetingsMaster.ActivateReply;
+import didameetings.DidaMeetingsMaster.ActivateRequest;
 import didameetings.DidaMeetingsMaster.NewBallotReply;
 import didameetings.DidaMeetingsMaster.NewBallotRequest;
 import didameetings.DidaMeetingsMaster.SetDebugReply;
@@ -16,7 +18,7 @@ import didameetings.DidaMeetingsMaster.SetDebugRequest;
 import didameetings.DidaMeetingsMaster.WriteValueReply;
 import didameetings.DidaMeetingsMaster.WriteValueRequest;
 import didameetings.DidaMeetingsMasterServiceGrpc.DidaMeetingsMasterServiceStub;
-
+import didameetings.configs.ConfigurationScheduler;
 import didameetings.util.*;
 
 import io.grpc.ManagedChannel;
@@ -30,14 +32,17 @@ public class Console {
             ▙▘▟▖▙▘▛▌  ▌▝ ▌▙▖▙▖▐ ▟▖▌▝▌▙▌▄▌  ▙▖▙▌▌▝▌▄▌▙▌▙▖▙▖
             """;
 
+    private final ConfigurationScheduler scheduler;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final ManagedChannel[] channels;
     private final DidaMeetingsMasterServiceStub[] stubs;
     private AtomicInteger completedBallot = new AtomicInteger(-1);
+    private AtomicInteger pendingActivate = new AtomicInteger(-1);
     private int sequenceNumber = 0;
 
     public Console(Args cliArgs) {
-        int nodeCount = cliArgs.scheduler().allparticipants().size();
+        this.scheduler = cliArgs.scheduler();
+        int nodeCount = this.scheduler.allparticipants().size();
         this.channels = new ManagedChannel[nodeCount];
         this.stubs = new DidaMeetingsMasterServiceStub[nodeCount];
         for (int i = 0; i < nodeCount; i++) {
@@ -70,6 +75,9 @@ public class Console {
                     case "writevalue":
                         writeValueCommand(commandArgs);
                         break;
+                    case "activate":
+                        activateCommand(commandArgs);
+                        break;
                     case "exit":
                         shouldQuit = true;
                         break;
@@ -91,10 +99,13 @@ public class Console {
     private void helpCommand() {
         System.out.println("+----------[ HELP ]----------+");
         System.out.println("> help - display help menu.");
-        System.out.println("> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
+        System.out.println(
+                "> ballot <number> <replica> - starts the ballot with the specified number in the given replica.");
         System.out.println("> debug <mode> <replica> - sets the given replica in the specified debug mode.");
         System.out.println("  Debug modes: 1=crash, 2=freeze, 3=unfreeze, 4=slow on, 5=slow off");
-        System.out.println("> writevalue <replica> <instance> <value> <ballot> - writes a value in specific instance of replica");
+        System.out.println(
+                "> writevalue <replica> <instance> <value> <ballot> - writes a value in specific instance of replica");
+        System.out.println("> activate <ballot> - activates the leader of a specific ballot");
         System.out.println("> exit - quits the console.\n");
     }
 
@@ -103,7 +114,7 @@ public class Console {
             System.err.println("Invalid number of arguments! Use: debug <mode> <replica> [instance value for mode 6]");
             return;
         }
-        
+
         int mode = 0;
         try {
             mode = Integer.parseInt(args[0]);
@@ -111,7 +122,7 @@ public class Console {
             System.err.println("Debug mode needs to be a number!");
             return;
         }
-        
+
         int replica = 0;
         try {
             replica = Integer.parseInt(args[1]);
@@ -119,13 +130,13 @@ public class Console {
             System.err.println("Replica needs to be a number!");
             return;
         }
-        
+
         if (mode == 6) {
             if (args.length != 4) {
                 System.err.println("Mode 6 requires: debug 6 <replica> <instance> <value>");
                 return;
             }
-            
+
             int instance = 0;
             try {
                 instance = Integer.parseInt(args[2]);
@@ -133,7 +144,7 @@ public class Console {
                 System.err.println("Instance needs to be a number!");
                 return;
             }
-            
+
             int value = 0;
             try {
                 value = Integer.parseInt(args[3]);
@@ -173,25 +184,25 @@ public class Console {
 
     private void setDebugParams(int replica, int instance, int value) {
         System.out.println("Setting instance " + instance + " to value " + value + " in replica " + replica);
-        
+
         // Simply call debug mode 6
         int reqid = nextRequestId();
         SetDebugRequest request = SetDebugRequest.newBuilder()
                 .setReqid(reqid)
                 .setMode(6)
                 .build();
-        
+
         List<SetDebugReply> responses = new ArrayList<>();
         GenericResponseCollector<SetDebugReply> collector = new GenericResponseCollector<>(responses, 1);
         CollectorStreamObserver<SetDebugReply> observer = new CollectorStreamObserver<>(collector);
         this.stubs[replica].setdebug(request, observer);
         collector.waitForQuorum(1);
-        
+
         if (responses.isEmpty()) {
             System.err.println("No reply received for the given replica :(");
             return;
         }
-        
+
         SetDebugReply reply = responses.getFirst();
         if (reply.getAck()) {
             System.out.println("Successfully set instance " + instance + " to value " + value);
@@ -240,7 +251,7 @@ public class Console {
             }
             NewBallotReply reply = responses.getFirst();
             int completed = reply.getCompletedballot();
-            this.completedBallot.set(completed);
+            this.pendingActivate.set(completed);
             // System.out.println("New completed ballot: " + completed);
         });
     }
@@ -290,7 +301,8 @@ public class Console {
 
             WriteValueReply reply = responses.getFirst();
             if (reply.getAck()) {
-                System.out.println("Successfully wrote value '" + value + "' with ballot '" + ballot + "' in instance " + instance + " of replica " + replica);
+                System.out.println("Successfully wrote value '" + value + "' with ballot '" + ballot + "' in instance "
+                        + instance + " of replica " + replica);
             } else {
                 System.out.println("Failed to write value in instance " + instance + " of replica " + replica);
             }
@@ -299,6 +311,38 @@ public class Console {
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
         }
+    }
+
+    public void activateCommand(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Usage: activate <ballot>");
+            return;
+        }
+        int ballot;
+        try {
+            ballot = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            System.err.println("ballot needs to be a number!");
+            return;
+        }
+        int reqid = nextRequestId();
+        ActivateRequest request = ActivateRequest.newBuilder()
+                .setReqid(reqid)
+                .build();
+        List<ActivateReply> responses = new ArrayList<>();
+        GenericResponseCollector<ActivateReply> collector = new GenericResponseCollector<>(responses, 1);
+        CollectorStreamObserver<ActivateReply> observer = new CollectorStreamObserver<>(collector);
+        int replica = this.scheduler.leader(ballot);
+        this.stubs[replica].activate(request, observer);
+        collector.waitUntilDone();
+
+        if (responses.isEmpty()) {
+            System.out.println("No response received for activate");
+            return;
+        }
+
+        this.completedBallot.set(ballot);
+        System.out.println("Replica has been activated!");
     }
 
     public static void main(String[] args) throws Exception {
