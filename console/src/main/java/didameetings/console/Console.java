@@ -36,7 +36,7 @@ public class Console {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final ManagedChannel[] channels;
     private final DidaMeetingsMasterServiceStub[] stubs;
-    private AtomicInteger completedBallot = new AtomicInteger(-1);
+    private AtomicInteger completedBallot = new AtomicInteger(0);
     private AtomicInteger pendingActivate = new AtomicInteger(-1);
     private int sequenceNumber = 0;
 
@@ -76,7 +76,7 @@ public class Console {
                         writeValueCommand(commandArgs);
                         break;
                     case "activate":
-                        activateCommand(commandArgs);
+                        activateCommand();
                         break;
                     case "exit":
                         shouldQuit = true;
@@ -105,7 +105,7 @@ public class Console {
         System.out.println("  Debug modes: 1=crash, 2=freeze, 3=unfreeze, 4=slow on, 5=slow off");
         System.out.println(
                 "> writevalue <replica> <instance> <value> <ballot> - writes a value in specific instance of replica");
-        System.out.println("> activate <ballot> - activates the leader of a specific ballot");
+        System.out.println("> activate - activates a pending leader");
         System.out.println("> exit - quits the console.\n");
     }
 
@@ -251,8 +251,10 @@ public class Console {
             }
             NewBallotReply reply = responses.getFirst();
             int completed = reply.getCompletedballot();
-            this.pendingActivate.set(completed);
-            // System.out.println("New completed ballot: " + completed);
+            synchronized (this) {
+                this.pendingActivate.set(completed);
+                System.out.print("\rNew ballot received: " + completed + ". Ready to activate.\n~> ");
+            }
         });
     }
 
@@ -313,18 +315,7 @@ public class Console {
         }
     }
 
-    public void activateCommand(String[] args) {
-        if (args.length != 1) {
-            System.out.println("Usage: activate <ballot>");
-            return;
-        }
-        int ballot;
-        try {
-            ballot = Integer.parseInt(args[0]);
-        } catch (NumberFormatException e) {
-            System.err.println("ballot needs to be a number!");
-            return;
-        }
+    public void activateCommand() {
         int reqid = nextRequestId();
         ActivateRequest request = ActivateRequest.newBuilder()
                 .setReqid(reqid)
@@ -332,17 +323,23 @@ public class Console {
         List<ActivateReply> responses = new ArrayList<>();
         GenericResponseCollector<ActivateReply> collector = new GenericResponseCollector<>(responses, 1);
         CollectorStreamObserver<ActivateReply> observer = new CollectorStreamObserver<>(collector);
-        int replica = this.scheduler.leader(ballot);
-        this.stubs[replica].activate(request, observer);
-        collector.waitUntilDone();
-
-        if (responses.isEmpty()) {
-            System.out.println("No response received for activate");
-            return;
+        synchronized (this) {
+            int pendingBallot = this.pendingActivate.get();
+            if (pendingBallot == -1) {
+                System.out.println("No pending replica to activate!");
+                return;
+            }
+            int replica = this.scheduler.leader(pendingBallot);
+            this.stubs[replica].activate(request, observer);
+            collector.waitUntilDone();
+            if (responses.isEmpty()) {
+                System.out.println("No response received for activate");
+                return;
+            }
+            this.pendingActivate.set(-1);
+            this.completedBallot.set(pendingBallot);
+            System.out.println("Replica has been activated!");
         }
-
-        this.completedBallot.set(ballot);
-        System.out.println("Replica has been activated!");
     }
 
     public static void main(String[] args) throws Exception {

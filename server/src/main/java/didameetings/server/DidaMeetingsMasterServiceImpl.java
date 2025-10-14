@@ -42,6 +42,7 @@ public class DidaMeetingsMasterServiceImpl extends DidaMeetingsMasterServiceImpl
             completedBallot = this.state.getCompletedBallot();
         }
 
+        LOGGER.debug("Replying to console completed ballot: {}", completedBallot);
         NewBallotReply response = NewBallotReply.newBuilder()
                 .setReqid(reqId)
                 .setCompletedballot(completedBallot)

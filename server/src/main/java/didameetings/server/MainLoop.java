@@ -122,6 +122,7 @@ public class MainLoop implements Runnable {
                 if (!this.ballotUpdated) {
                     this.state.setCompletedBallot(ballot);
                     this.ballotUpdated = true;
+                    LOGGER.debug("updated completed ballot!");
                 }
                 if (!this.state.isActivated()) {
                     break;
@@ -207,7 +208,7 @@ public class MainLoop implements Runnable {
         }
         List<Integer> acceptors = this.state.getScheduler().acceptors(completedBallot);
         LOGGER.debug("reading from acceptors of ballot {}: {}", completedBallot, acceptors);
-        int quorum = this.state.getScheduler().quorum(ballot);
+        int quorum = this.state.getScheduler().quorum(completedBallot);
         PhaseOneRequest request = PhaseOneRequest.newBuilder()
                 .setInstance(instanceId)
                 .setRequestballot(ballot)
