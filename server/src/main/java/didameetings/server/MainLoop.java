@@ -122,6 +122,7 @@ public class MainLoop implements Runnable {
                 if (!this.ballotUpdated) {
                     this.state.setCompletedBallot(ballot);
                     this.ballotUpdated = true;
+                    LOGGER.debug("updated completed ballot!");
                 }
                 if (!this.state.isActivated()) {
                     break;

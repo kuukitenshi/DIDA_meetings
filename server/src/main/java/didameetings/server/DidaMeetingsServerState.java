@@ -199,6 +199,6 @@ public class DidaMeetingsServerState {
     }
 
     public synchronized boolean isActivated() {
-        return activated;
+        return activated || this.completedBallot <= 0;
     }
 }
