@@ -6,9 +6,11 @@
 - 116117 - Pedro Silva
 
 ## Checkpoint implemented features:
-- **Step 0 (provided):** Baseline. In this implementation, the system implements statemachine replication and runs “Schedule A” only. A simple, and incomplete, version of the baseline has been already implemented and is provided to students.
+- **Step 0 (provided):** Baseline. 
 - **Step 1:** Complete the baseline. Implement debug modes required to show that the baseline is bogus. Complete the baseline, namely by doing a proper Paxos “phase 1”.
 - **Step 2:** Multi-Paxos. The system implements Multi-Paxos, running “Schedule A”
+- **Step 3:** Implement Reconfigurable Multi-Paxos, as the system has "Schedule B", which involves performing a state transfer, such that the new replicas have knowledge about values decided in the past.
+- **Step 4:** Implement Fast topic, which is the same as above, but now using fast topic operations.
 
 
 # Build
